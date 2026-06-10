@@ -1,0 +1,379 @@
+.gm-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.gm-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.gm-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gm-subtitle {
+  margin: 0.5rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+}
+
+.gm-month-selector {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.gm-month-btn {
+  padding: 0.4rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.gm-month-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.gm-month-btn--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.gm-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.gm-card {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border-top: 3px solid transparent;
+  transition: transform 0.15s;
+}
+
+.gm-card:hover {
+  transform: translateY(-2px);
+}
+
+.gm-card-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.gm-card-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.gm-card-pct {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.gm-chart-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+  .gm-chart-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gm-chart-card {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.gm-section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+  color: var(--color-text);
+}
+
+.gm-compare-section {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.gm-compare-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.gm-compare-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.gm-compare-label {
+  width: 160px;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .gm-compare-label {
+    width: 100%;
+  }
+}
+
+.gm-compare-bars-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.gm-bar-track {
+  height: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.gm-bar-fill {
+  height: 100%;
+  border-radius: 8px;
+  transition: width 0.4s ease;
+  min-width: 2px;
+}
+
+.gm-bar-actual {
+  opacity: 1;
+}
+
+.gm-bar-ideal {
+  opacity: 0.4;
+  height: 10px;
+  margin-top: 2px;
+}
+
+.gm-compare-values {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.8rem;
+  font-weight: 600;
+  gap: 2px;
+  min-width: 90px;
+  white-space: nowrap;
+}
+
+.gm-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.gm-search {
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  font-family: inherit;
+  outline: none;
+  width: 200px;
+  transition: border-color 0.15s;
+}
+
+.gm-search:focus {
+  border-color: var(--color-primary);
+}
+
+.gm-search::placeholder {
+  color: var(--color-text-muted);
+}
+
+.gm-th-sort {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.gm-th-sort:hover {
+  color: var(--color-primary-light);
+}
+
+.gm-table-section {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.gm-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.gm-table thead {
+  border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+}
+
+.gm-table th {
+  text-align: left;
+  padding: 0.75rem 0.5rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.gm-table td {
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  vertical-align: middle;
+}
+
+.gm-table tbody tr {
+  transition: background 0.12s;
+}
+
+.gm-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.gm-monto {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.gm-fin {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.gm-rest-done {
+  color: #4caf50;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.gm-rest-indef {
+  color: var(--color-text-muted);
+  font-size: 1rem;
+}
+
+.gm-rest-num {
+  color: var(--color-secondary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.gm-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .gm-container {
+    padding: 1rem 0.75rem 3rem;
+  }
+
+  .gm-title {
+    font-size: 1.5rem;
+  }
+
+  .gm-summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.65rem;
+  }
+
+  .gm-card {
+    padding: 0.9rem;
+  }
+
+  .gm-card-value {
+    font-size: 1.1rem;
+  }
+
+  .gm-section-title {
+    font-size: 1rem;
+  }
+
+  .gm-table thead {
+    display: none;
+  }
+
+  .gm-table tbody tr {
+    display: block;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .gm-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.3rem 0.5rem;
+    border: none;
+  }
+
+  .gm-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+}

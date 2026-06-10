@@ -1,0 +1,23 @@
+## Detalle de Gastos
+
+| Concepto              | Mensualidad | Categoria      | Fecha      |
+| :-------------------- | ----------: | :------------- | :--------- |
+| Renta + Mantenimiento |       16287 | Necesidades    | may-29     |
+| Limpieza              |        2000 | Necesidades    | may-29     |
+| Youtube               |         319 | Estilo de vida | indefinido |
+| Netflix               |         348 | Estilo de vida | indefinido |
+| Spotify               |         149 | Estilo de vida | indefinido |
+| Crunchy roll          |         149 | Estilo de vida | indefinido |
+| Plan ATT              |        1625 | Necesidades    | indefinido |
+| Internet              |         880 | Necesidades    | indefinido |
+| Agua                  |         605 | Necesidades    | indefinido |
+| Jimena                |        4000 | Necesidades    | indefinido |
+| Prime                 |          99 | Estilo de vida | indefinido |
+| YTP                   |     8560.84 | Deuda          | dic-26     |
+| ByeByeBelly           |        1902 | Estilo de vida | ago-26     |
+| Ipad                  |         889 | Estilo de vida | sep-27     |
+| Apple Pencil          |         215 | Estilo de vida | feb-27     |
+| Medica sur            |        1267 | Necesidades    | ago-26     |
+| Banamex Diferido      |      470.79 | Deuda          | oct-27     |
+| Tenencias             |         127 | Necesidades    | sep-27     |
+| Ahorro                |        1000 | Ahorro y futur | indefinido |

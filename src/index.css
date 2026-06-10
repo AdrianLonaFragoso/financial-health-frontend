@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700;800&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Roboto', system-ui, -apple-system, sans-serif;
+}
+
+:root {
+  /* Primary Colors */
+  --color-primary: #b04cff; /* Morado principal */
+  --color-primary-dark: #7a2eff; /* Morado profundo */
+  --color-primary-light: #d68cff; /* Morado suave */
+
+  /* Secondary Colors */
+  --color-secondary: #00d8ff; /* Cian eléctrico */
+  --color-accent: #ff4fd8; /* Magenta neón */
+
+  /* Optional Neutrals */
+  --color-bg: #0f1026; /* Fondo oscuro */
+  --color-surface: #1a1d3a; /* Cards / Panels */
+  --color-text: #f4f6ff; /* Texto principal */
+  --color-text-muted: #a0a6c0; /* Texto secundario */
+}
