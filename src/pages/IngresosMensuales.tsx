@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   PieChart,
   Pie,
@@ -13,17 +13,40 @@ import {
   CartesianGrid,
 } from "recharts";
 import {
-  MONTHS_DATA,
   INGRESO_COLORS,
   formatMonto,
 } from "../data/constants";
+import type { MonthData } from "../data/constants";
+import { obtenerMeses } from "../services/mesesService";
 import "./IngresosMensuales.css";
 
 function IngresosMensuales() {
-  const [selectedMonth, setSelectedMonth] = useState(MONTHS_DATA[0].id);
+  const [meses, setMeses] = useState<MonthData[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    obtenerMeses()
+      .then((res) => {
+        setMeses(res.data);
+        if (res.data.length > 0) setSelectedMonth(res.data[0].id);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   const { month, totalIngresos, totalGastos, pieData, balance } = useMemo(() => {
-    const month = MONTHS_DATA.find((m) => m.id === selectedMonth)!;
+    if (!selectedMonth || meses.length === 0) {
+      return {
+        month: null as MonthData | null,
+        totalIngresos: 0,
+        totalGastos: 0,
+        pieData: [] as { name: string; value: number; color: string }[],
+        balance: 0,
+      };
+    }
+    const month = meses.find((m) => m.id === selectedMonth)!;
     const totalIngresos = month.ingresos.reduce((s, i) => s + i.monto, 0);
     const totalGastos = month.gastos.reduce((s, g) => s + g.monto, 0);
     const pieData = month.ingresos.map((i) => ({
@@ -33,14 +56,18 @@ function IngresosMensuales() {
     }));
     const balance = totalIngresos - totalGastos;
     return { month, totalIngresos, totalGastos, pieData, balance };
-  }, [selectedMonth]);
+  }, [selectedMonth, meses]);
+
+  if (loading) return <div className="im-container"><p>Cargando...</p></div>;
+  if (error) return <div className="im-container"><p>Error: {error}</p></div>;
+  if (!month) return <div className="im-container"><p>No hay datos disponibles</p></div>;
 
   return (
     <div className="im-container">
       <header className="im-header">
         <h1 className="im-title">Ingresos Mensuales</h1>
         <div className="im-month-selector">
-          {MONTHS_DATA.map((m) => (
+          {meses.map((m) => (
             <button
               key={m.id}
               className={`im-month-btn ${m.id === selectedMonth ? "im-month-btn--active" : ""}`}

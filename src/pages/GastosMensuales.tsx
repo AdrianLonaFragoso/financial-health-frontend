@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   PieChart,
   Pie,
@@ -8,12 +8,12 @@ import {
   Legend,
 } from "recharts";
 import {
-  MONTHS_DATA,
   CATEGORY_META,
   IDEAL_SPLIT,
   formatMonto,
 } from "../data/constants";
-import type { Gasto } from "../data/constants";
+import type { Gasto, MonthData } from "../data/constants";
+import { obtenerMeses } from "../services/mesesService";
 import "./GastosMensuales.css";
 
 type SortKey = keyof Gasto | "restantes";
@@ -46,13 +46,36 @@ function monthsRemaining(fin: string): number | null {
 }
 
 function GastosMensuales() {
-  const [selectedMonth, setSelectedMonth] = useState(MONTHS_DATA[0].id);
+  const [meses, setMeses] = useState<MonthData[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
+  useEffect(() => {
+    obtenerMeses()
+      .then((res) => {
+        setMeses(res.data);
+        if (res.data.length > 0) setSelectedMonth(res.data[0].id);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
   const { month, total, totalIngresos, porCategoria, pieData, totalIdeal } = useMemo(() => {
-    const month = MONTHS_DATA.find((m) => m.id === selectedMonth)!;
+    if (!selectedMonth || meses.length === 0) {
+      return {
+        month: null as MonthData | null,
+        total: 0,
+        totalIngresos: 0,
+        porCategoria: [] as { categoria: string; monto: number; pct: number; color: string; label: string }[],
+        pieData: [] as { name: string; value: number; color: string }[],
+        totalIdeal: { necesidades: 0, estiloVida: 0, ahorro: 0 },
+      };
+    }
+    const month = meses.find((m) => m.id === selectedMonth)!;
     const totalIngresos = month.ingresos.reduce((s, i) => s + i.monto, 0);
     const acc: Record<string, number> = {};
     for (const g of month.gastos) {
@@ -77,13 +100,14 @@ function GastosMensuales() {
       ahorro: totalIngresos * 0.2,
     };
     return { month, total, totalIngresos, porCategoria, pieData, totalIdeal };
-  }, [selectedMonth]);
+  }, [selectedMonth, meses]);
 
   const actualNeeds = porCategoria.find((c) => c.categoria === "Necesidades");
   const actualLifestyle = porCategoria.find((c) => c.categoria === "Estilo de vida");
   const actualSavings = porCategoria.find((c) => c.categoria === "Ahorro");
 
   const filteredGastos = useMemo(() => {
+    if (!month) return [];
     const q = search.toLowerCase().trim();
     let list = month.gastos;
     if (q) {
@@ -116,7 +140,7 @@ function GastosMensuales() {
       });
     }
     return list;
-  }, [month.gastos, search, sortKey, sortDir]);
+  }, [month?.gastos, search, sortKey, sortDir]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -139,12 +163,16 @@ function GastosMensuales() {
     return <span className="gm-rest-num">{remain}</span>;
   }
 
+  if (loading) return <div className="gm-container"><p>Cargando...</p></div>;
+  if (error) return <div className="gm-container"><p>Error: {error}</p></div>;
+  if (!month) return <div className="gm-container"><p>No hay datos disponibles</p></div>;
+
   return (
     <div className="gm-container">
       <header className="gm-header">
         <h1 className="gm-title">Gastos Mensuales</h1>
         <div className="gm-month-selector">
-          {MONTHS_DATA.map((m) => (
+          {meses.map((m) => (
             <button
               key={m.id}
               className={`gm-month-btn ${m.id === selectedMonth ? "gm-month-btn--active" : ""}`}
