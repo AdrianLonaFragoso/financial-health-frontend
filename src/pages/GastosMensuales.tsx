@@ -227,15 +227,15 @@ function GastosMensuales() {
                   value != null ? formatMonto(Number(value)) : ""
                 }
                 contentStyle={{
-                  background: "#1a1d3a",
-                  border: "1px solid #2a2d5a",
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
                   borderRadius: 8,
-                  color: "#f4f6ff",
+                  color: "var(--color-text)",
                 }}
               />
               <Legend
                 formatter={(value: string) => (
-                  <span style={{ color: "#f4f6ff" }}>{value}</span>
+                  <span style={{ color: "var(--color-text)" }}>{value}</span>
                 )}
               />
             </PieChart>
@@ -265,15 +265,15 @@ function GastosMensuales() {
                   value != null ? `${Number(value)}%` : ""
                 }
                 contentStyle={{
-                  background: "#1a1d3a",
-                  border: "1px solid #2a2d5a",
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
                   borderRadius: 8,
-                  color: "#f4f6ff",
+                  color: "var(--color-text)",
                 }}
               />
               <Legend
                 formatter={(value: string) => (
-                  <span style={{ color: "#f4f6ff" }}>{value}</span>
+                  <span style={{ color: "var(--color-text)" }}>{value}</span>
                 )}
               />
             </PieChart>

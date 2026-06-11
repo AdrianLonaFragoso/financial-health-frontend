@@ -11,19 +11,32 @@ body {
   font-family: 'Roboto', system-ui, -apple-system, sans-serif;
 }
 
-:root {
-  /* Primary Colors */
-  --color-primary: #b04cff; /* Morado principal */
-  --color-primary-dark: #7a2eff; /* Morado profundo */
-  --color-primary-light: #d68cff; /* Morado suave */
+.light {
+  --color-text-rgb: 0, 0, 0;
+  --color-primary-rgb: 0, 87, 184;
+  --color-primary: #0057B8;
+  --color-primary-dark: #012169;
+  --color-primary-light: #00A3E0;
+  --color-secondary: #00A3E0;
+  --color-accent: #FF3333;
+  --color-bg: #F5F5F5;
+  --color-surface: #FFFFFF;
+  --color-text: #000000;
+  --color-text-muted: #959595;
+  --color-border: rgba(0, 0, 0, 0.08);
+}
 
-  /* Secondary Colors */
-  --color-secondary: #00d8ff; /* Cian eléctrico */
-  --color-accent: #ff4fd8; /* Magenta neón */
-
-  /* Optional Neutrals */
-  --color-bg: #0f1026; /* Fondo oscuro */
-  --color-surface: #1a1d3a; /* Cards / Panels */
-  --color-text: #f4f6ff; /* Texto principal */
-  --color-text-muted: #a0a6c0; /* Texto secundario */
+.dark {
+  --color-text-rgb: 244, 246, 255;
+  --color-primary-rgb: 176, 76, 255;
+  --color-primary: #b04cff;
+  --color-primary-dark: #7a2eff;
+  --color-primary-light: #d68cff;
+  --color-secondary: #00d8ff;
+  --color-accent: #ff4fd8;
+  --color-bg: #0f1026;
+  --color-surface: #1a1d3a;
+  --color-text: #f4f6ff;
+  --color-text-muted: #a0a6c0;
+  --color-border: rgba(255, 255, 255, 0.08);
 }

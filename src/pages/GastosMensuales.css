@@ -37,7 +37,7 @@
 .gm-month-btn {
   padding: 0.4rem 1rem;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-text-muted);
   font-size: 0.85rem;
@@ -165,7 +165,7 @@
 
 .gm-bar-track {
   height: 14px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--color-text-rgb), 0.06);
   border-radius: 8px;
   overflow: hidden;
   position: relative;
@@ -211,8 +211,8 @@
 .gm-search {
   padding: 0.45rem 0.85rem;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--color-border);
+  background: rgba(var(--color-text-rgb), 0.04);
   color: var(--color-text);
   font-size: 0.85rem;
   font-family: inherit;
@@ -257,7 +257,7 @@
 }
 
 .gm-table thead {
-  border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 2px solid var(--color-border);
 }
 
 .gm-table th {
@@ -273,7 +273,7 @@
 
 .gm-table td {
   padding: 0.65rem 0.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(var(--color-text-rgb), 0.06);
   vertical-align: middle;
 }
 
@@ -282,7 +282,7 @@
 }
 
 .gm-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--color-text-rgb), 0.03);
 }
 
 .gm-monto {
@@ -357,7 +357,7 @@
   .gm-table tbody tr {
     display: block;
     padding: 0.75rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(var(--color-text-rgb), 0.06);
   }
 
   .gm-table td {

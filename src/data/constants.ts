@@ -6,6 +6,7 @@ export interface Gasto {
 }
 
 export interface Ingreso {
+  _id?: string;
   concepto: string;
   monto: number;
 }

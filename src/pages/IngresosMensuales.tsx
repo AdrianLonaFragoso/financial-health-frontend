@@ -12,13 +12,19 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
+import { FaPlus, FaTrash, FaPen } from "react-icons/fa";
 import {
   INGRESO_COLORS,
   formatMonto,
 } from "../data/constants";
-import type { MonthData } from "../data/constants";
+import type { Ingreso, MonthData } from "../data/constants";
 import { obtenerMeses } from "../services/mesesService";
+import { crearIngreso, actualizarIngreso, eliminarIngreso } from "../services/ingresosService";
 import "./IngresosMensuales.css";
+
+function ingresoId(i: Ingreso, idx: number) {
+  return i._id ?? `tmp-${idx}`;
+}
 
 function IngresosMensuales() {
   const [meses, setMeses] = useState<MonthData[]>([]);
@@ -26,14 +32,30 @@ function IngresosMensuales() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const [showModal, setShowModal] = useState(false);
+  const [nuevoConcepto, setNuevoConcepto] = useState("");
+  const [nuevoMonto, setNuevoMonto] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const [editTarget, setEditTarget] = useState<Ingreso | null>(null);
+  const [editConcepto, setEditConcepto] = useState("");
+  const [editMonto, setEditMonto] = useState("");
+
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  function cargarMeses() {
+    setLoading(true);
     obtenerMeses()
       .then((res) => {
         setMeses(res.data);
-        if (res.data.length > 0) setSelectedMonth(res.data[0].id);
+        if (res.data.length > 0 && !selectedMonth) setSelectedMonth(res.data[0].id);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    cargarMeses();
   }, []);
 
   const { month, totalIngresos, totalGastos, pieData, balance } = useMemo(() => {
@@ -57,6 +79,63 @@ function IngresosMensuales() {
     const balance = totalIngresos - totalGastos;
     return { month, totalIngresos, totalGastos, pieData, balance };
   }, [selectedMonth, meses]);
+
+  function openEdit(i: Ingreso) {
+    setEditTarget(i);
+    setEditConcepto(i.concepto);
+    setEditMonto(String(i.monto));
+  }
+
+  async function handleAgregar(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nuevoConcepto.trim() || !nuevoMonto.trim()) return;
+    setSubmitting(true);
+    try {
+      await crearIngreso(selectedMonth, {
+        concepto: nuevoConcepto.trim(),
+        monto: parseFloat(nuevoMonto),
+      });
+      setNuevoConcepto("");
+      setNuevoMonto("");
+      setShowModal(false);
+      cargarMeses();
+    } catch {
+      // error will be shown by cargarMeses
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleEditar(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTarget || !editConcepto.trim() || !editMonto.trim()) return;
+    const ingresoId = editTarget._id;
+    if (!ingresoId) return;
+    setSubmitting(true);
+    try {
+      await actualizarIngreso(selectedMonth, ingresoId, {
+        concepto: editConcepto.trim(),
+        monto: parseFloat(editMonto),
+      });
+      setEditTarget(null);
+      cargarMeses();
+    } catch {
+      // error will be shown by cargarMeses
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function confirmarEliminar() {
+    if (!deleteTarget) return;
+    try {
+      await eliminarIngreso(selectedMonth, deleteTarget);
+      setDeleteTarget(null);
+      cargarMeses();
+    } catch {
+      // error will be shown by cargarMeses
+    }
+  }
 
   if (loading) return <div className="im-container"><p>Cargando...</p></div>;
   if (error) return <div className="im-container"><p>Error: {error}</p></div>;
@@ -130,15 +209,15 @@ function IngresosMensuales() {
                   value != null ? formatMonto(Number(value)) : ""
                 }
                 contentStyle={{
-                  background: "#1a1d3a",
-                  border: "1px solid #2a2d5a",
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
                   borderRadius: 8,
-                  color: "#f4f6ff",
+                  color: "var(--color-text)",
                 }}
               />
               <Legend
                 formatter={(value: string) => (
-                  <span style={{ color: "#f4f6ff" }}>{value}</span>
+                  <span style={{ color: "var(--color-text)" }}>{value}</span>
                 )}
               />
             </PieChart>
@@ -155,7 +234,7 @@ function IngresosMensuales() {
                   cy="90"
                   r="78"
                   fill="none"
-                  stroke="rgba(255,255,255,0.06)"
+                  stroke="var(--color-border)"
                   strokeWidth="14"
                 />
                 <circle
@@ -174,7 +253,7 @@ function IngresosMensuales() {
                   x="90"
                   y="80"
                   textAnchor="middle"
-                  fill="#f4f6ff"
+                  fill="var(--color-text)"
                   fontSize="14"
                   fontWeight="600"
                 >
@@ -245,10 +324,10 @@ function IngresosMensuales() {
               },
             ]}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-            <XAxis dataKey="name" stroke="#a0a6c0" fontSize={13} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+            <XAxis dataKey="name" stroke="var(--color-text-muted)" fontSize={13} />
             <YAxis
-              stroke="#a0a6c0"
+              stroke="var(--color-text-muted)"
               fontSize={12}
               tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
             />
@@ -257,15 +336,15 @@ function IngresosMensuales() {
                 value != null ? formatMonto(Number(value)) : ""
               }
               contentStyle={{
-                background: "#1a1d3a",
-                border: "1px solid #2a2d5a",
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
                 borderRadius: 8,
-                color: "#f4f6ff",
+                color: "var(--color-text)",
               }}
             />
             <Legend
               formatter={(value: string) => (
-                <span style={{ color: "#f4f6ff" }}>{value}</span>
+                <span style={{ color: "var(--color-text)" }}>{value}</span>
               )}
             />
             <Bar dataKey="Ingresos" fill="#f59e0b" radius={[6, 6, 0, 0]} />
@@ -285,7 +364,13 @@ function IngresosMensuales() {
       </section>
 
       <section className="im-table-section">
-        <h2 className="im-section-title">Detalle de ingresos</h2>
+        <div className="im-table-header">
+          <h2 className="im-section-title">Detalle de ingresos</h2>
+          <button className="im-add-btn" onClick={() => setShowModal(true)}>
+            <FaPlus />
+            Agregar ingreso
+          </button>
+        </div>
         <div className="im-table-wrapper">
           <table className="im-table">
             <thead>
@@ -293,11 +378,12 @@ function IngresosMensuales() {
                 <th>Concepto</th>
                 <th>Monto</th>
                 <th>Porcentaje</th>
+                <th className="im-th-acciones">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {month.ingresos.map((i) => (
-                <tr key={i.concepto}>
+              {month.ingresos.map((i, idx) => (
+                <tr key={ingresoId(i, idx)}>
                   <td data-label="Concepto">{i.concepto}</td>
                   <td
                     data-label="Monto"
@@ -309,6 +395,22 @@ function IngresosMensuales() {
                   <td data-label="Porcentaje" className="im-pct">
                     {((i.monto / totalIngresos) * 100).toFixed(1)}%
                   </td>
+                  <td data-label="Acciones" className="im-acciones-cell">
+                    <button
+                      className="im-action-btn"
+                      title="Editar ingreso"
+                      onClick={() => openEdit(i)}
+                    >
+                      <FaPen />
+                    </button>
+                    <button
+                      className="im-action-btn im-action-btn--delete"
+                      title="Eliminar ingreso"
+                      onClick={() => setDeleteTarget(ingresoId(i, idx))}
+                    >
+                      <FaTrash />
+                    </button>
+                  </td>
                 </tr>
               ))}
               <tr className="im-row-total">
@@ -319,11 +421,135 @@ function IngresosMensuales() {
                 <td data-label="Porcentaje" className="im-pct">
                   100%
                 </td>
+                <td />
               </tr>
             </tbody>
           </table>
         </div>
       </section>
+
+      {showModal && (
+        <div className="im-overlay" onClick={() => setShowModal(false)}>
+          <div className="im-modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="im-modal-title">Nuevo ingreso</h2>
+            <form onSubmit={handleAgregar}>
+              <div className="im-modal-field">
+                <label htmlFor="im-concepto">Concepto</label>
+                <input
+                  id="im-concepto"
+                  type="text"
+                  placeholder="Ej. Sueldo, Vales, ..."
+                  value={nuevoConcepto}
+                  onChange={(e) => setNuevoConcepto(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="im-modal-field">
+                <label htmlFor="im-monto">Monto</label>
+                <input
+                  id="im-monto"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={nuevoMonto}
+                  onChange={(e) => setNuevoMonto(e.target.value)}
+                />
+              </div>
+              <div className="im-modal-actions">
+                <button
+                  type="button"
+                  className="im-modal-cancel"
+                  onClick={() => setShowModal(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="im-modal-submit"
+                  disabled={submitting || !nuevoConcepto.trim() || !nuevoMonto.trim()}
+                >
+                  {submitting ? "Guardando..." : "Guardar"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editTarget && (
+        <div className="im-overlay" onClick={() => setEditTarget(null)}>
+          <div className="im-modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="im-modal-title">Editar ingreso</h2>
+            <form onSubmit={handleEditar}>
+              <div className="im-modal-field">
+                <label htmlFor="im-edit-concepto">Concepto</label>
+                <input
+                  id="im-edit-concepto"
+                  type="text"
+                  value={editConcepto}
+                  onChange={(e) => setEditConcepto(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="im-modal-field">
+                <label htmlFor="im-edit-monto">Monto</label>
+                <input
+                  id="im-edit-monto"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editMonto}
+                  onChange={(e) => setEditMonto(e.target.value)}
+                />
+              </div>
+              <div className="im-modal-actions">
+                <button
+                  type="button"
+                  className="im-modal-cancel"
+                  onClick={() => setEditTarget(null)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="im-modal-submit"
+                  disabled={submitting || !editConcepto.trim() || !editMonto.trim()}
+                >
+                  {submitting ? "Guardando..." : "Guardar"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="im-overlay" onClick={() => setDeleteTarget(null)}>
+          <div className="im-modal im-modal--confirm" onClick={(e) => e.stopPropagation()}>
+            <h2 className="im-modal-title">Eliminar ingreso</h2>
+            <p className="im-confirm-text">
+              ¿Estás seguro de que deseas eliminar este ingreso? Esta acción no se puede deshacer.
+            </p>
+            <div className="im-modal-actions">
+              <button
+                type="button"
+                className="im-modal-cancel"
+                onClick={() => setDeleteTarget(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="im-modal-submit im-modal-submit--danger"
+                onClick={confirmarEliminar}
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

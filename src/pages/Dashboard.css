@@ -1,0 +1,228 @@
+.db-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.db-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.db-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.db-subtitle {
+  margin: 0.5rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+}
+
+.db-month-selector {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.db-month-btn {
+  padding: 0.4rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.db-month-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.db-month-btn--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.db-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.db-card {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border-top: 3px solid transparent;
+  transition: transform 0.15s;
+  text-align: center;
+}
+
+.db-card:hover {
+  transform: translateY(-2px);
+}
+
+.db-card-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.db-card-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.db-chart-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+  .db-chart-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+.db-chart-card {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.db-section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+  color: var(--color-text);
+}
+
+.db-table-section {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.db-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.db-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.db-table thead {
+  border-bottom: 2px solid var(--color-border);
+}
+
+.db-table th {
+  text-align: left;
+  padding: 0.75rem 0.5rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.db-table td {
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid rgba(var(--color-text-rgb), 0.06);
+  vertical-align: middle;
+}
+
+.db-table tbody tr {
+  transition: background 0.12s;
+}
+
+.db-table tbody tr:hover {
+  background: rgba(var(--color-text-rgb), 0.03);
+}
+
+.db-monto {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.db-pos {
+  color: #4caf50;
+}
+
+.db-neg {
+  color: var(--color-accent);
+}
+
+@media (max-width: 768px) {
+  .db-summary-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .db-container {
+    padding: 1rem 0.75rem 3rem;
+  }
+
+  .db-title {
+    font-size: 1.5rem;
+  }
+
+  .db-section-title {
+    font-size: 1rem;
+  }
+
+  .db-table thead {
+    display: none;
+  }
+
+  .db-table tbody tr {
+    display: block;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(var(--color-text-rgb), 0.06);
+  }
+
+  .db-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.3rem 0.5rem;
+    border: none;
+  }
+
+  .db-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+}

@@ -37,7 +37,7 @@
 .im-month-btn {
   padding: 0.4rem 1rem;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-text-muted);
   font-size: 0.85rem;
@@ -185,7 +185,7 @@
   gap: 1rem;
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--color-border);
 }
 
 .im-compare-label-result {
@@ -199,6 +199,193 @@
 .im-compare-value-result {
   font-size: 1.4rem;
   font-weight: 700;
+}
+
+.im-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.im-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  border: none;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.im-add-btn:hover {
+  opacity: 0.85;
+}
+
+.im-th-acciones {
+  width: 80px;
+  text-align: center;
+}
+
+.im-acciones-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.im-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 0.75rem;
+}
+
+.im-action-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.08);
+}
+
+.im-action-btn--delete:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: rgba(255, 51, 51, 0.08);
+}
+
+.im-confirm-text {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 0.5rem;
+}
+
+.im-modal--confirm {
+  max-width: 380px;
+}
+
+.im-modal-submit--danger {
+  background: var(--color-accent);
+}
+
+.im-modal-submit--danger:hover {
+  opacity: 0.85;
+}
+
+.im-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.im-modal {
+  background: var(--color-surface);
+  border-radius: 14px;
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+.im-modal-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0 0 1.25rem;
+  color: var(--color-text);
+}
+
+.im-modal-field {
+  margin-bottom: 1rem;
+}
+
+.im-modal-field label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.35rem;
+}
+
+.im-modal-field input {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.im-modal-field input:focus {
+  border-color: var(--color-primary);
+}
+
+.im-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  justify-content: flex-end;
+}
+
+.im-modal-cancel,
+.im-modal-submit {
+  padding: 0.5rem 1.2rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.im-modal-cancel {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.im-modal-cancel:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+.im-modal-submit {
+  background: var(--color-primary);
+  border: none;
+  color: #fff;
+}
+
+.im-modal-submit:hover {
+  opacity: 0.85;
+}
+
+.im-modal-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .im-table-section {
@@ -219,7 +406,7 @@
 }
 
 .im-table thead {
-  border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 2px solid var(--color-border);
 }
 
 .im-table th {
@@ -235,7 +422,7 @@
 
 .im-table td {
   padding: 0.65rem 0.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(var(--color-text-rgb), 0.06);
   vertical-align: middle;
 }
 
@@ -244,12 +431,12 @@
 }
 
 .im-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--color-text-rgb), 0.03);
 }
 
 .im-row-total {
   font-weight: 700;
-  border-top: 2px solid rgba(255, 255, 255, 0.1);
+  border-top: 2px solid var(--color-border);
 }
 
 .im-row-total td {
@@ -307,7 +494,7 @@
   .im-table tbody tr {
     display: block;
     padding: 0.75rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(var(--color-text-rgb), 0.06);
   }
 
   .im-table td {
