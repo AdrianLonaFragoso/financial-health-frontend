@@ -7,6 +7,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+import { FaPlus, FaTrash, FaPen } from "react-icons/fa";
 import {
   CATEGORY_META,
   IDEAL_SPLIT,
@@ -14,6 +15,7 @@ import {
 } from "../data/constants";
 import type { Gasto, MonthData } from "../data/constants";
 import { obtenerMeses } from "../services/mesesService";
+import { crearGasto, actualizarGasto, eliminarGasto } from "../services/gastosService";
 import "./GastosMensuales.css";
 
 type SortKey = keyof Gasto | "restantes";
@@ -54,14 +56,34 @@ function GastosMensuales() {
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  useEffect(() => {
+  const [showModal, setShowModal] = useState(false);
+  const [nuevoConcepto, setNuevoConcepto] = useState("");
+  const [nuevoMonto, setNuevoMonto] = useState("");
+  const [nuevaCategoria, setNuevaCategoria] = useState("Necesidades");
+  const [nuevoFin, setNuevoFin] = useState("indefinido");
+  const [submitting, setSubmitting] = useState(false);
+
+  const [editTarget, setEditTarget] = useState<Gasto | null>(null);
+  const [editConcepto, setEditConcepto] = useState("");
+  const [editMonto, setEditMonto] = useState("");
+  const [editCategoria, setEditCategoria] = useState("");
+  const [editFin, setEditFin] = useState("");
+
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  function cargarMeses() {
+    setLoading(true);
     obtenerMeses()
       .then((res) => {
         setMeses(res.data);
-        if (res.data.length > 0) setSelectedMonth(res.data[0].id);
+        if (res.data.length > 0 && !selectedMonth) setSelectedMonth(res.data[0].id);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    cargarMeses();
   }, []);
 
   const { month, total, totalIngresos, porCategoria, pieData, totalIdeal } = useMemo(() => {
@@ -161,6 +183,68 @@ function GastosMensuales() {
     if (remain === null) return <span className="gm-rest-indef">∞</span>;
     if (remain === 0) return <span className="gm-rest-done">✓</span>;
     return <span className="gm-rest-num">{remain}</span>;
+  }
+
+  function openEdit(g: Gasto) {
+    setEditTarget(g);
+    setEditConcepto(g.concepto);
+    setEditMonto(String(g.monto));
+    setEditCategoria(g.categoria);
+    setEditFin(g.fin);
+  }
+
+  async function handleAgregar(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nuevoConcepto.trim() || !nuevoMonto.trim()) return;
+    setSubmitting(true);
+    try {
+      await crearGasto(selectedMonth, {
+        concepto: nuevoConcepto.trim(),
+        monto: parseFloat(nuevoMonto),
+        categoria: nuevaCategoria,
+        fin: nuevoFin,
+      });
+      setNuevoConcepto("");
+      setNuevoMonto("");
+      setNuevaCategoria("Necesidades");
+      setNuevoFin("indefinido");
+      setShowModal(false);
+      cargarMeses();
+    } catch {
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleEditar(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTarget || !editConcepto.trim() || !editMonto.trim()) return;
+    const gastoId = editTarget.id;
+    if (!gastoId) return;
+    setSubmitting(true);
+    try {
+      await actualizarGasto(selectedMonth, gastoId, {
+        concepto: editConcepto.trim(),
+        monto: parseFloat(editMonto),
+        categoria: editCategoria,
+        fin: editFin,
+      });
+      setEditTarget(null);
+      cargarMeses();
+    } catch {
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function confirmarEliminar() {
+    if (!deleteTarget) return;
+    try {
+      await eliminarGasto(selectedMonth, deleteTarget);
+      setDeleteTarget(null);
+      cargarMeses();
+    } catch {
+    }
   }
 
   if (loading) return <div className="gm-container"><p>Cargando...</p></div>;
@@ -349,13 +433,19 @@ function GastosMensuales() {
       <section className="gm-table-section">
         <div className="gm-table-header">
           <h2 className="gm-section-title">Detalle de gastos</h2>
-          <input
-            className="gm-search"
-            type="text"
-            placeholder="Buscar..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <input
+              className="gm-search"
+              type="text"
+              placeholder="Buscar..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <button className="gm-add-btn" onClick={() => setShowModal(true)}>
+              <FaPlus />
+              Agregar gasto
+            </button>
+          </div>
         </div>
         <div className="gm-table-wrapper">
           <table className="gm-table">
@@ -376,6 +466,7 @@ function GastosMensuales() {
                 <th className="gm-th-sort" onClick={() => toggleSort("restantes")}>
                   P/Restantes{sortArrow("restantes")}
                 </th>
+                <th className="gm-th-acciones">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -405,6 +496,22 @@ function GastosMensuales() {
                     <td data-label="P/Restantes">
                       {renderRestantes(g.fin)}
                     </td>
+                    <td data-label="Acciones" className="gm-acciones-cell">
+                      <button
+                        className="gm-action-btn"
+                        title="Editar gasto"
+                        onClick={() => openEdit(g)}
+                      >
+                        <FaPen />
+                      </button>
+                      <button
+                        className="gm-action-btn gm-action-btn--delete"
+                        title="Eliminar gasto"
+                        onClick={() => setDeleteTarget(g.id ?? `tmp-${i}`)}
+                      >
+                        <FaTrash />
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -412,6 +519,177 @@ function GastosMensuales() {
           </table>
         </div>
       </section>
+      {showModal && (
+        <div className="gm-overlay" onClick={() => setShowModal(false)}>
+          <div className="gm-modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="gm-modal-title">Nuevo gasto</h2>
+            <form onSubmit={handleAgregar}>
+              <div className="gm-modal-field">
+                <label htmlFor="gm-concepto">Concepto</label>
+                <input
+                  id="gm-concepto"
+                  type="text"
+                  placeholder="Ej. Renta, Netflix, ..."
+                  value={nuevoConcepto}
+                  onChange={(e) => setNuevoConcepto(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="gm-modal-field">
+                <label htmlFor="gm-monto">Monto</label>
+                <input
+                  id="gm-monto"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={nuevoMonto}
+                  onChange={(e) => setNuevoMonto(e.target.value)}
+                />
+              </div>
+              <div className="gm-modal-field">
+                <label htmlFor="gm-categoria">Categoria</label>
+                <select
+                  id="gm-categoria"
+                  className="gm-select"
+                  value={nuevaCategoria}
+                  onChange={(e) => setNuevaCategoria(e.target.value)}
+                >
+                  {Object.entries(CATEGORY_META).map(([key, meta]) => (
+                    <option key={key} value={key}>
+                      {meta.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="gm-modal-field">
+                <label htmlFor="gm-fin">Vencimiento</label>
+                <input
+                  id="gm-fin"
+                  type="text"
+                  placeholder='indefinido, 01-may-29, ...'
+                  value={nuevoFin}
+                  onChange={(e) => setNuevoFin(e.target.value)}
+                />
+              </div>
+              <div className="gm-modal-actions">
+                <button
+                  type="button"
+                  className="gm-modal-cancel"
+                  onClick={() => setShowModal(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="gm-modal-submit"
+                  disabled={submitting || !nuevoConcepto.trim() || !nuevoMonto.trim()}
+                >
+                  {submitting ? "Guardando..." : "Guardar"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editTarget && (
+        <div className="gm-overlay" onClick={() => setEditTarget(null)}>
+          <div className="gm-modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="gm-modal-title">Editar gasto</h2>
+            <form onSubmit={handleEditar}>
+              <div className="gm-modal-field">
+                <label htmlFor="gm-edit-concepto">Concepto</label>
+                <input
+                  id="gm-edit-concepto"
+                  type="text"
+                  value={editConcepto}
+                  onChange={(e) => setEditConcepto(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="gm-modal-field">
+                <label htmlFor="gm-edit-monto">Monto</label>
+                <input
+                  id="gm-edit-monto"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editMonto}
+                  onChange={(e) => setEditMonto(e.target.value)}
+                />
+              </div>
+              <div className="gm-modal-field">
+                <label htmlFor="gm-edit-categoria">Categoria</label>
+                <select
+                  id="gm-edit-categoria"
+                  className="gm-select"
+                  value={editCategoria}
+                  onChange={(e) => setEditCategoria(e.target.value)}
+                >
+                  {Object.entries(CATEGORY_META).map(([key, meta]) => (
+                    <option key={key} value={key}>
+                      {meta.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="gm-modal-field">
+                <label htmlFor="gm-edit-fin">Vencimiento</label>
+                <input
+                  id="gm-edit-fin"
+                  type="text"
+                  value={editFin}
+                  onChange={(e) => setEditFin(e.target.value)}
+                />
+              </div>
+              <div className="gm-modal-actions">
+                <button
+                  type="button"
+                  className="gm-modal-cancel"
+                  onClick={() => setEditTarget(null)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="gm-modal-submit"
+                  disabled={submitting || !editConcepto.trim() || !editMonto.trim()}
+                >
+                  {submitting ? "Guardando..." : "Guardar"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="gm-overlay" onClick={() => setDeleteTarget(null)}>
+          <div className="gm-modal gm-modal--confirm" onClick={(e) => e.stopPropagation()}>
+            <h2 className="gm-modal-title">Eliminar gasto</h2>
+            <p className="gm-confirm-text">
+              ¿Estas seguro de que deseas eliminar este gasto? Esta accion no se puede deshacer.
+            </p>
+            <div className="gm-modal-actions">
+              <button
+                type="button"
+                className="gm-modal-cancel"
+                onClick={() => setDeleteTarget(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="gm-modal-submit gm-modal-submit--danger"
+                onClick={confirmarEliminar}
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

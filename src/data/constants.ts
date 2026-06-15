@@ -1,4 +1,5 @@
 export interface Gasto {
+  id?: string;
   concepto: string;
   monto: number;
   categoria: string;
@@ -6,7 +7,7 @@ export interface Gasto {
 }
 
 export interface Ingreso {
-  _id?: string;
+  id?: string;
   concepto: string;
   monto: number;
 }
@@ -120,6 +121,11 @@ export const MONTHS_DATA: MonthData[] = [
       { concepto: "Banamex Diferido", monto: 470.79, categoria: "Deuda", fin: "01-oct-27" },
     ],
   },
+];
+
+export const MESES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
 export const CATEGORY_META: Record<string, { label: string; color: string }> = {

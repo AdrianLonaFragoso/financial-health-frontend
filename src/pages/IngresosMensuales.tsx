@@ -23,7 +23,7 @@ import { crearIngreso, actualizarIngreso, eliminarIngreso } from "../services/in
 import "./IngresosMensuales.css";
 
 function ingresoId(i: Ingreso, idx: number) {
-  return i._id ?? `tmp-${idx}`;
+  return i.id ?? `tmp-${idx}`;
 }
 
 function IngresosMensuales() {
@@ -109,7 +109,7 @@ function IngresosMensuales() {
   async function handleEditar(e: React.FormEvent) {
     e.preventDefault();
     if (!editTarget || !editConcepto.trim() || !editMonto.trim()) return;
-    const ingresoId = editTarget._id;
+    const ingresoId = editTarget.id;
     if (!ingresoId) return;
     setSubmitting(true);
     try {

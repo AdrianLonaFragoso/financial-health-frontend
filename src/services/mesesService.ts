@@ -16,3 +16,12 @@ export function crearMes(data: { label: string; year: number; month: number }) {
 export function eliminarMes(id: string) {
   return api.delete(`/meses/${id}`);
 }
+
+export function obtenerResumen() {
+  return api.get<{
+    totalMeses: number;
+    totalIngresos: number;
+    totalGastos: number;
+    balance: number;
+  }>("/resumen");
+}

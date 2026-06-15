@@ -1,12 +1,13 @@
 import { useLocation } from "react-router-dom";
 import { useTheme } from "../contexts/ThemeContext";
-import { FaChartPie, FaArrowRight, FaArrowLeft } from "react-icons/fa";
+import { FaChartPie, FaArrowRight, FaArrowLeft, FaCreditCard } from "react-icons/fa";
 import "./Sidebar.css";
 
 const links = [
   { path: "/", label: "Dashboard", icon: FaChartPie },
   { path: "/ingresos", label: "Ingresos", icon: FaArrowRight },
   { path: "/gastos", label: "Gastos", icon: FaArrowLeft },
+  { path: "/creditos", label: "Créditos", icon: FaCreditCard },
 ];
 
 function Sidebar() {
