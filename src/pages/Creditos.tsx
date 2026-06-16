@@ -128,7 +128,10 @@ function Creditos() {
   if (loading)
     return (
       <div className="cr-container">
-        <p>Cargando...</p>
+        <div className="loading-screen">
+          <div className="loading-spinner" />
+          <p className="loading-text">Cargando...</p>
+        </div>
       </div>
     );
   if (error)

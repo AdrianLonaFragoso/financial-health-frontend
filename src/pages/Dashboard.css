@@ -234,6 +234,20 @@
   opacity: 0.85;
 }
 
+.db-filter-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.db-filter-checkbox input {
+  accent-color: var(--color-primary);
+}
+
 .db-th-acciones {
   width: 70px;
   text-align: center;
@@ -482,10 +496,32 @@
 }
 
 .db-table--wide tbody td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
   text-align: left;
   font-weight: 600;
   white-space: nowrap;
   padding-right: 1rem;
+  background: var(--color-surface);
+}
+
+.db-table--wide tbody tr:hover td:first-child {
+  background: var(--color-bg);
+}
+
+.db-table--wide thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  background: var(--color-surface);
+}
+
+.db-table--wide tfoot td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-surface);
 }
 
 .db-table--wide tbody td:nth-child(2) {

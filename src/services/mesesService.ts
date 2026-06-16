@@ -9,7 +9,7 @@ export function obtenerMes(id: string) {
   return api.get<MonthData>(`/meses/${id}`);
 }
 
-export function crearMes(data: { label: string; year: number; month: number }) {
+export function crearMes(data: { label: string; year: number; month: number; autoPopulate?: boolean }) {
   return api.post<MonthData>("/meses", data);
 }
 

@@ -17,8 +17,7 @@ function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <span className="sidebar-logo-f">F</span>
-        <span className="sidebar-logo-rest">INANCIAL HEALTH</span>
+        <img src="/msc-logo-mobile.svg" alt="MSC" className="sidebar-logo-img" />
       </div>
       <nav className="sidebar-nav">
         {links.map((link) => {

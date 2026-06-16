@@ -12,7 +12,8 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { FaPlus, FaTrash, FaPen } from "react-icons/fa";
+import { FaPlus, FaTrash, FaPen, FaFileCsv } from "react-icons/fa";
+import CsvImportModal from "../components/CsvImportModal";
 import {
   INGRESO_COLORS,
   MESES,
@@ -43,6 +44,7 @@ function IngresosMensuales() {
   const [editMonto, setEditMonto] = useState("");
 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   function currentMonthId(meses: MonthData[]) {
     const now = new Date();
@@ -146,7 +148,7 @@ function IngresosMensuales() {
     }
   }
 
-  if (loading) return <div className="im-container"><p>Cargando...</p></div>;
+  if (loading) return <div className="im-container"><div className="loading-screen"><div className="loading-spinner" /><p className="loading-text">Cargando...</p></div></div>;
   if (error) return <div className="im-container"><p>Error: {error}</p></div>;
   if (!month) return <div className="im-container"><p>No hay datos disponibles</p></div>;
 
@@ -375,10 +377,16 @@ function IngresosMensuales() {
       <section className="im-table-section">
         <div className="im-table-header">
           <h2 className="im-section-title">Detalle de ingresos</h2>
-          <button className="im-add-btn" onClick={() => setShowModal(true)}>
-            <FaPlus />
-            Agregar ingreso
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <button className="im-add-btn" onClick={() => setShowModal(true)}>
+              <FaPlus />
+              Agregar ingreso
+            </button>
+            <button className="im-add-btn" onClick={() => setShowImport(true)}>
+              <FaFileCsv />
+              Importar CSV
+            </button>
+          </div>
         </div>
         <div className="im-table-wrapper">
           <table className="im-table">
@@ -558,6 +566,14 @@ function IngresosMensuales() {
             </div>
           </div>
         </div>
+      )}
+
+      {showImport && (
+        <CsvImportModal
+          type="ingreso"
+          onClose={() => setShowImport(false)}
+          onSuccess={() => { setShowImport(false); cargarMeses(); }}
+        />
       )}
     </div>
   );

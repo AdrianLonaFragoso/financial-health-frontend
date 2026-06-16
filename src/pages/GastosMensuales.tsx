@@ -7,7 +7,8 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { FaPlus, FaTrash, FaPen } from "react-icons/fa";
+import { FaPlus, FaTrash, FaPen, FaFileCsv } from "react-icons/fa";
+import CsvImportModal from "../components/CsvImportModal";
 import {
   CATEGORY_META,
   IDEAL_SPLIT,
@@ -17,6 +18,7 @@ import {
 import type { Gasto, MonthData } from "../data/constants";
 import { obtenerMeses } from "../services/mesesService";
 import { crearGasto, actualizarGasto, eliminarGasto } from "../services/gastosService";
+
 import "./GastosMensuales.css";
 
 type SortKey = keyof Gasto | "restantes";
@@ -26,6 +28,11 @@ const MONTH_MAP: Record<string, number> = {
   ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5,
   jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11,
 };
+
+const REVERSE_MONTH_SHORT = [
+  "ene", "feb", "mar", "abr", "may", "jun",
+  "jul", "ago", "sep", "oct", "nov", "dic",
+];
 
 function parseFinDate(fin: string): Date | null {
   if (fin === "indefinido") return null;
@@ -48,6 +55,26 @@ function monthsRemaining(fin: string): number | null {
   return Math.max(0, diff);
 }
 
+function finToDateValue(fin: string): string {
+  if (fin === "indefinido") return "";
+  const date = parseFinDate(fin);
+  if (!date) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function dateValueToFin(value: string): string {
+  if (!value) return "indefinido";
+  const date = new Date(value + "T12:00:00");
+  if (isNaN(date.getTime())) return "indefinido";
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = REVERSE_MONTH_SHORT[date.getMonth()];
+  const year = String(date.getFullYear()).slice(-2);
+  return `${day}-${month}-${year}`;
+}
+
 function GastosMensuales() {
   const [meses, setMeses] = useState<MonthData[]>([]);
   const [selectedMonth, setSelectedMonth] = useState("");
@@ -62,6 +89,8 @@ function GastosMensuales() {
   const [nuevoMonto, setNuevoMonto] = useState("");
   const [nuevaCategoria, setNuevaCategoria] = useState("Necesidades");
   const [nuevoFin, setNuevoFin] = useState("indefinido");
+  const [nuevoFinIndefinido, setNuevoFinIndefinido] = useState(true);
+  const [nuevoFinDate, setNuevoFinDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const [editTarget, setEditTarget] = useState<Gasto | null>(null);
@@ -69,8 +98,11 @@ function GastosMensuales() {
   const [editMonto, setEditMonto] = useState("");
   const [editCategoria, setEditCategoria] = useState("");
   const [editFin, setEditFin] = useState("");
+  const [editFinIndefinido, setEditFinIndefinido] = useState(true);
+  const [editFinDate, setEditFinDate] = useState("");
 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   function currentMonthId(meses: MonthData[]) {
     const now = new Date();
@@ -95,10 +127,11 @@ function GastosMensuales() {
     cargarMeses();
   }, []);
 
-  const { month, total, totalIngresos, porCategoria, pieData, totalIdeal } = useMemo(() => {
+  const { month, gastosParaMes, total, totalIngresos, porCategoria, pieData, totalIdeal } = useMemo(() => {
     if (!selectedMonth || meses.length === 0) {
       return {
         month: null as MonthData | null,
+        gastosParaMes: [] as Gasto[],
         total: 0,
         totalIngresos: 0,
         porCategoria: [] as { categoria: string; monto: number; pct: number; color: string; label: string }[],
@@ -107,9 +140,10 @@ function GastosMensuales() {
       };
     }
     const month = meses.find((m) => m.id === selectedMonth)!;
+    const gastosParaMes = month.gastos;
     const totalIngresos = month.ingresos.reduce((s, i) => s + i.monto, 0);
     const acc: Record<string, number> = {};
-    for (const g of month.gastos) {
+    for (const g of gastosParaMes) {
       acc[g.categoria] = (acc[g.categoria] || 0) + g.monto;
     }
     const total = Object.values(acc).reduce((a, b) => a + b, 0);
@@ -130,7 +164,7 @@ function GastosMensuales() {
       estiloVida: totalIngresos * 0.3,
       ahorro: totalIngresos * 0.2,
     };
-    return { month, total, totalIngresos, porCategoria, pieData, totalIdeal };
+    return { month, gastosParaMes, total, totalIngresos, porCategoria, pieData, totalIdeal };
   }, [selectedMonth, meses]);
 
   const actualNeeds = porCategoria.find((c) => c.categoria === "Necesidades");
@@ -140,7 +174,7 @@ function GastosMensuales() {
   const filteredGastos = useMemo(() => {
     if (!month) return [];
     const q = search.toLowerCase().trim();
-    let list = month.gastos;
+    let list = gastosParaMes;
     if (q) {
       list = list.filter(
         (g) =>
@@ -171,7 +205,7 @@ function GastosMensuales() {
       });
     }
     return list;
-  }, [month?.gastos, search, sortKey, sortDir]);
+  }, [gastosParaMes, search, sortKey, sortDir]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -200,6 +234,8 @@ function GastosMensuales() {
     setEditMonto(String(g.monto));
     setEditCategoria(g.categoria);
     setEditFin(g.fin);
+    setEditFinIndefinido(g.fin === "indefinido");
+    setEditFinDate(finToDateValue(g.fin));
   }
 
   async function handleAgregar(e: React.FormEvent) {
@@ -207,16 +243,19 @@ function GastosMensuales() {
     if (!nuevoConcepto.trim() || !nuevoMonto.trim()) return;
     setSubmitting(true);
     try {
+      const finValue = nuevoFinIndefinido ? "indefinido" : dateValueToFin(nuevoFinDate);
       await crearGasto(selectedMonth, {
         concepto: nuevoConcepto.trim(),
         monto: parseFloat(nuevoMonto),
         categoria: nuevaCategoria,
-        fin: nuevoFin,
+        fin: finValue,
       });
       setNuevoConcepto("");
       setNuevoMonto("");
       setNuevaCategoria("Necesidades");
       setNuevoFin("indefinido");
+      setNuevoFinIndefinido(true);
+      setNuevoFinDate("");
       setShowModal(false);
       cargarMeses();
     } catch {
@@ -232,11 +271,12 @@ function GastosMensuales() {
     if (!gastoId) return;
     setSubmitting(true);
     try {
+      const finValue = editFinIndefinido ? "indefinido" : dateValueToFin(editFinDate);
       await actualizarGasto(selectedMonth, gastoId, {
         concepto: editConcepto.trim(),
         monto: parseFloat(editMonto),
         categoria: editCategoria,
-        fin: editFin,
+        fin: finValue,
       });
       setEditTarget(null);
       cargarMeses();
@@ -256,7 +296,7 @@ function GastosMensuales() {
     }
   }
 
-  if (loading) return <div className="gm-container"><p>Cargando...</p></div>;
+  if (loading) return <div className="gm-container"><div className="loading-screen"><div className="loading-spinner" /><p className="loading-text">Cargando...</p></div></div>;
   if (error) return <div className="gm-container"><p>Error: {error}</p></div>;
   if (!month) return <div className="gm-container"><p>No hay datos disponibles</p></div>;
 
@@ -454,6 +494,10 @@ function GastosMensuales() {
               <FaPlus />
               Agregar gasto
             </button>
+            <button className="gm-add-btn" onClick={() => setShowImport(true)}>
+              <FaFileCsv />
+              Importar CSV
+            </button>
           </div>
         </div>
         <div className="gm-table-wrapper">
@@ -573,13 +617,26 @@ function GastosMensuales() {
               </div>
               <div className="gm-modal-field">
                 <label htmlFor="gm-fin">Vencimiento</label>
-                <input
-                  id="gm-fin"
-                  type="text"
-                  placeholder='indefinido, 01-may-29, ...'
-                  value={nuevoFin}
-                  onChange={(e) => setNuevoFin(e.target.value)}
-                />
+                <div className="gm-fin-row">
+                  <label className="gm-fin-indef-label">
+                    <input
+                      type="checkbox"
+                      checked={nuevoFinIndefinido}
+                      onChange={(e) => setNuevoFinIndefinido(e.target.checked)}
+                    />
+                    Indefinido
+                  </label>
+                  <input
+                    id="gm-fin"
+                    type="date"
+                    value={nuevoFinDate}
+                    onChange={(e) => {
+                      setNuevoFinDate(e.target.value);
+                      setNuevoFinIndefinido(false);
+                    }}
+                    disabled={nuevoFinIndefinido}
+                  />
+                </div>
               </div>
               <div className="gm-modal-actions">
                 <button
@@ -645,12 +702,26 @@ function GastosMensuales() {
               </div>
               <div className="gm-modal-field">
                 <label htmlFor="gm-edit-fin">Vencimiento</label>
-                <input
-                  id="gm-edit-fin"
-                  type="text"
-                  value={editFin}
-                  onChange={(e) => setEditFin(e.target.value)}
-                />
+                <div className="gm-fin-row">
+                  <label className="gm-fin-indef-label">
+                    <input
+                      type="checkbox"
+                      checked={editFinIndefinido}
+                      onChange={(e) => setEditFinIndefinido(e.target.checked)}
+                    />
+                    Indefinido
+                  </label>
+                  <input
+                    id="gm-edit-fin"
+                    type="date"
+                    value={editFinDate}
+                    onChange={(e) => {
+                      setEditFinDate(e.target.value);
+                      setEditFinIndefinido(false);
+                    }}
+                    disabled={editFinIndefinido}
+                  />
+                </div>
               </div>
               <div className="gm-modal-actions">
                 <button
@@ -698,6 +769,14 @@ function GastosMensuales() {
             </div>
           </div>
         </div>
+      )}
+
+      {showImport && (
+        <CsvImportModal
+          type="gasto"
+          onClose={() => setShowImport(false)}
+          onSuccess={() => { setShowImport(false); cargarMeses(); }}
+        />
       )}
     </div>
   );

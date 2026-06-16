@@ -12,7 +12,8 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { FaPlus, FaTrash } from "react-icons/fa";
+import { FaPlus, FaTrash, FaFileCsv } from "react-icons/fa";
+import CsvImportModal from "../components/CsvImportModal";
 import {
   CATEGORY_META,
   MESES,
@@ -20,6 +21,7 @@ import {
 } from "../data/constants";
 import type { MonthData } from "../data/constants";
 import { obtenerMeses, crearMes, eliminarMes, obtenerResumen } from "../services/mesesService";
+
 import "./Dashboard.css";
 
 interface Resumen {
@@ -36,53 +38,7 @@ const INGRESO_COLOR_MAP: Record<string, string> = {
   "Fondo de ahorro": "#2196f3",
 };
 
-const MONTH_NAMES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-const ALL_MONTHS = [2025, 2026, 2027, 2028].flatMap(y => MONTH_NAMES.map(m => `${m} ${y}`));
 
-const HISTORICO_ITEMS: { item: string; monto: number; ranges: [number, number][] }[] = [
-  { item: "Raize + GNP", monto: 8054, ranges: [[0, 29]] },
-  { item: "YTP", monto: 8560.84, ranges: [[19, 47]] },
-  { item: "Retroid Pocket 5", monto: 452, ranges: [[22, 30]] },
-  { item: "Casa Verde", monto: 6165.15, ranges: [[27, 29]] },
-  { item: "ByeByeBelly", monto: 1902, ranges: [[26, 31]] },
-  { item: "iPad", monto: 889, ranges: [[23, 44]] },
-  { item: "Apple Pencil", monto: 215, ranges: [[23, 37]] },
-  { item: "Relojes Cubot", monto: 462, ranges: [[28, 30]] },
-  { item: "Medica sur", monto: 1267, ranges: [[29, 31]] },
-  { item: "Juegos Steam", monto: 902.48, ranges: [[28, 30]] },
-  { item: "Banamex Diferido", monto: 470.79, ranges: [[28, 45]] },
-  { item: "Tenencias", monto: 127, ranges: [[27, 32]] },
-  { item: "Diferido Rappi", monto: 475, ranges: [[29, 30]] },
-];
-
-const CURRENT_MONTH_INDEX = (() => {
-  const now = new Date();
-  return (now.getFullYear() - 2025) * 12 + now.getMonth();
-})();
-
-function buildHistoricoRows() {
-  return HISTORICO_ITEMS.map(({ item, monto, ranges }) => {
-    const payments: (number | null)[] = new Array(48).fill(null);
-    for (const [start, end] of ranges) {
-      for (let i = start; i <= end; i++) {
-        payments[i] = monto;
-      }
-    }
-    return { item, payments };
-  });
-}
-
-const HISTORICO_ROWS = buildHistoricoRows();
-
-const HISTORICO_TOTALS = (() => {
-  return ALL_MONTHS.map((_, monthIdx) => {
-    let total = 0;
-    for (const row of HISTORICO_ROWS) {
-      total += row.payments[monthIdx] ?? 0;
-    }
-    return total;
-  });
-})();
 
 function Dashboard() {
   const [meses, setMeses] = useState<MonthData[]>([]);
@@ -97,6 +53,8 @@ function Dashboard() {
   const [creando, setCreando] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [hideFutureMonths, setHideFutureMonths] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   function cargarDatos() {
     setLoading(true);
@@ -107,7 +65,12 @@ function Dashboard() {
       .then(([mesRes, resumenRes]) => {
         setMeses(mesRes.data);
         setResumen(resumenRes.data);
-        if (mesRes.data.length > 0 && !selectedMonth) setSelectedMonth(mesRes.data[0].id);
+        if (mesRes.data.length > 0 && !selectedMonth) {
+          const now = new Date();
+          const currentLabel = `${MESES[now.getMonth()]} ${now.getFullYear()}`;
+          const current = mesRes.data.find((m) => m.label === currentLabel);
+          setSelectedMonth(current?.id ?? mesRes.data[0].id);
+        }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -130,12 +93,13 @@ function Dashboard() {
       };
     }
     const month = meses.find((m) => m.id === selectedMonth)!;
+    const gastosMes = month.gastos;
     const totalIngresos = month.ingresos.reduce((s, i) => s + i.monto, 0);
-    const totalGastos = month.gastos.reduce((s, g) => s + g.monto, 0);
+    const totalGastos = gastosMes.reduce((s, g) => s + g.monto, 0);
     const balance = totalIngresos - totalGastos;
 
     const acc: Record<string, number> = {};
-    for (const g of month.gastos) {
+    for (const g of gastosMes) {
       acc[g.categoria] = (acc[g.categoria] || 0) + g.monto;
     }
     const porCategoria = Object.entries(acc).map(([k, v]) => ({
@@ -168,6 +132,56 @@ function Dashboard() {
     });
   }, [meses]);
 
+  const pagosData = useMemo(() => {
+    if (meses.length === 0) return { months: [], rows: [], totals: [] };
+
+    const conceptMap = new Map<string, { concepto: string; monto: number; categoria: string; fin: string }>();
+    const conceptMonths = new Map<string, Map<string, number>>();
+
+    for (const m of meses) {
+      for (const g of m.gastos) {
+        if (!conceptMap.has(g.concepto)) {
+          conceptMap.set(g.concepto, { concepto: g.concepto, monto: g.monto, categoria: g.categoria, fin: g.fin });
+        }
+        if (!conceptMonths.has(g.concepto)) {
+          conceptMonths.set(g.concepto, new Map());
+        }
+        conceptMonths.get(g.concepto)!.set(m.id, g.monto);
+      }
+    }
+
+    let rows = Array.from(conceptMap.values()).map((info) => {
+      const monthMap = conceptMonths.get(info.concepto)!;
+      return {
+        ...info,
+        payments: meses.map((m) => monthMap.get(m.id) ?? null),
+      };
+    });
+
+    if (hideFutureMonths) {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      rows = rows.filter((r) => {
+        if (r.fin === "indefinido") return true;
+        const parts = r.fin.split("-");
+        if (parts.length !== 3) return true;
+        const monthStr = parts[1]?.toLowerCase();
+        const yearStr = parts[2];
+        const endMonth = ({ ene:1, feb:2, mar:3, abr:4, may:5, jun:6, jul:7, ago:8, sep:9, oct:10, nov:11, dic:12 })[monthStr ?? ""];
+        const endYear = 2000 + parseInt(yearStr ?? "0", 10);
+        if (!endMonth || isNaN(endYear)) return true;
+        return endYear > currentYear || (endYear === currentYear && endMonth >= currentMonth);
+      });
+    }
+
+    rows.sort((a, b) => b.monto - a.monto);
+
+    const totals = meses.map((_, i) => rows.reduce((s, r) => s + (r.payments[i] ?? 0), 0));
+
+    return { months: meses, rows, totals };
+  }, [meses, hideFutureMonths]);
+
   async function handleCrearMes(e: React.FormEvent) {
     e.preventDefault();
     setCreando(true);
@@ -176,6 +190,7 @@ function Dashboard() {
         label: `${MESES[nuevoMes - 1]} ${nuevoAnio}`,
         year: nuevoAnio,
         month: nuevoMes,
+        autoPopulate: true,
       });
       setShowCreateModal(false);
       cargarDatos();
@@ -196,7 +211,7 @@ function Dashboard() {
     }
   }
 
-  if (loading) return <div className="db-container"><p>Cargando...</p></div>;
+  if (loading) return <div className="db-container"><div className="loading-screen"><div className="loading-spinner" /><p className="loading-text">Cargando...</p></div></div>;
   if (error) return <div className="db-container"><p>Error: {error}</p></div>;
   if (!resumen) return <div className="db-container"><p>No hay datos disponibles</p></div>;
 
@@ -490,44 +505,51 @@ function Dashboard() {
       )}
 
       <section className="db-table-section">
-        <h2 className="db-section-title">Pagos mensuales personales</h2>
+        <div className="db-table-header">
+          <h2 className="db-section-title">Pagos mensuales personales</h2>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+            <label className="db-filter-checkbox">
+              <input
+                type="checkbox"
+                checked={hideFutureMonths}
+                onChange={(e) => setHideFutureMonths(e.target.checked)}
+              />
+              Ocultar finalizados
+            </label>
+            <button className="db-add-btn" onClick={() => setShowImport(true)}>
+              <FaFileCsv />
+              Importar CSV
+            </button>
+          </div>
+        </div>
         <div className="db-table-wrapper">
           <table className="db-table db-table--wide">
             <thead>
-              <tr className="db-tr-year">
-                <th colSpan={2}></th>
-                {[2025, 2026, 2027, 2028].map(y => (
-                  <th key={y} colSpan={12} className="db-th-year">{y}</th>
-                ))}
-              </tr>
               <tr>
-                <th>Item</th>
+                <th>Concepto</th>
                 <th>Monto</th>
-                {ALL_MONTHS.map((m, i) => (
-                  <th key={m} className={`db-th-month${i === CURRENT_MONTH_INDEX ? " db-th-current" : ""}`}>{m}</th>
+                {pagosData.months.map((m) => (
+                  <th key={m.id} className="db-th-month">{m.label}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {HISTORICO_ROWS.map(row => {
-                const monto = row.payments.find(p => p != null) ?? 0;
-                return (
-                  <tr key={row.item}>
-                    <td className="db-month-name">{row.item}</td>
-                    <td className="db-monto">{monto > 0 ? formatMonto(monto) : "—"}</td>
-                    {row.payments.map((p, i) => (
-                      <td key={i} className={`db-monto${i === CURRENT_MONTH_INDEX ? " db-monto-current" : ""}`}>{p != null ? formatMonto(p) : ""}</td>
-                    ))}
-                  </tr>
-                );
-              })}
+              {pagosData.rows.map((row) => (
+                <tr key={row.concepto}>
+                  <td className="db-month-name">{row.concepto}</td>
+                  <td className="db-monto">{formatMonto(row.monto)}</td>
+                  {row.payments.map((p, i) => (
+                    <td key={i} className="db-monto">{p != null ? formatMonto(p) : ""}</td>
+                  ))}
+                </tr>
+              ))}
             </tbody>
             <tfoot>
               <tr>
                 <td style={{ fontWeight: 700 }}>Total</td>
                 <td></td>
-                {HISTORICO_TOTALS.map((t, i) => (
-                  <td key={i} className={`db-monto${i === CURRENT_MONTH_INDEX ? " db-monto-current" : ""}`} style={{ fontWeight: 700 }}>
+                {pagosData.totals.map((t, i) => (
+                  <td key={i} className="db-monto" style={{ fontWeight: 700 }}>
                     {t > 0 ? formatMonto(t) : ""}
                   </td>
                 ))}
@@ -536,6 +558,14 @@ function Dashboard() {
           </table>
         </div>
       </section>
+
+      {showImport && (
+        <CsvImportModal
+          type="gasto"
+          onClose={() => setShowImport(false)}
+          onSuccess={() => { setShowImport(false); cargarDatos(); }}
+        />
+      )}
 
       {showCreateModal && (
         <div className="db-overlay" onClick={() => setShowCreateModal(false)}>
