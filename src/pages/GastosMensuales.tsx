@@ -11,6 +11,7 @@ import { FaPlus, FaTrash, FaPen } from "react-icons/fa";
 import {
   CATEGORY_META,
   IDEAL_SPLIT,
+  MESES,
   formatMonto,
 } from "../data/constants";
 import type { Gasto, MonthData } from "../data/constants";
@@ -71,12 +72,20 @@ function GastosMensuales() {
 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
+  function currentMonthId(meses: MonthData[]) {
+    const now = new Date();
+    const label = `${MESES[now.getMonth()]} ${now.getFullYear()}`;
+    return meses.find((m) => m.label === label)?.id;
+  }
+
   function cargarMeses() {
     setLoading(true);
     obtenerMeses()
       .then((res) => {
         setMeses(res.data);
-        if (res.data.length > 0 && !selectedMonth) setSelectedMonth(res.data[0].id);
+        if (res.data.length > 0 && !selectedMonth) {
+          setSelectedMonth(currentMonthId(res.data) ?? res.data[0].id);
+        }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));

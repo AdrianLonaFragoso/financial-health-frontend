@@ -36,6 +36,54 @@ const INGRESO_COLOR_MAP: Record<string, string> = {
   "Fondo de ahorro": "#2196f3",
 };
 
+const MONTH_NAMES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+const ALL_MONTHS = [2025, 2026, 2027, 2028].flatMap(y => MONTH_NAMES.map(m => `${m} ${y}`));
+
+const HISTORICO_ITEMS: { item: string; monto: number; ranges: [number, number][] }[] = [
+  { item: "Raize + GNP", monto: 8054, ranges: [[0, 29]] },
+  { item: "YTP", monto: 8560.84, ranges: [[19, 47]] },
+  { item: "Retroid Pocket 5", monto: 452, ranges: [[22, 30]] },
+  { item: "Casa Verde", monto: 6165.15, ranges: [[27, 29]] },
+  { item: "ByeByeBelly", monto: 1902, ranges: [[26, 31]] },
+  { item: "iPad", monto: 889, ranges: [[23, 44]] },
+  { item: "Apple Pencil", monto: 215, ranges: [[23, 37]] },
+  { item: "Relojes Cubot", monto: 462, ranges: [[28, 30]] },
+  { item: "Medica sur", monto: 1267, ranges: [[29, 31]] },
+  { item: "Juegos Steam", monto: 902.48, ranges: [[28, 30]] },
+  { item: "Banamex Diferido", monto: 470.79, ranges: [[28, 45]] },
+  { item: "Tenencias", monto: 127, ranges: [[27, 32]] },
+  { item: "Diferido Rappi", monto: 475, ranges: [[29, 30]] },
+];
+
+const CURRENT_MONTH_INDEX = (() => {
+  const now = new Date();
+  return (now.getFullYear() - 2025) * 12 + now.getMonth();
+})();
+
+function buildHistoricoRows() {
+  return HISTORICO_ITEMS.map(({ item, monto, ranges }) => {
+    const payments: (number | null)[] = new Array(48).fill(null);
+    for (const [start, end] of ranges) {
+      for (let i = start; i <= end; i++) {
+        payments[i] = monto;
+      }
+    }
+    return { item, payments };
+  });
+}
+
+const HISTORICO_ROWS = buildHistoricoRows();
+
+const HISTORICO_TOTALS = (() => {
+  return ALL_MONTHS.map((_, monthIdx) => {
+    let total = 0;
+    for (const row of HISTORICO_ROWS) {
+      total += row.payments[monthIdx] ?? 0;
+    }
+    return total;
+  });
+})();
+
 function Dashboard() {
   const [meses, setMeses] = useState<MonthData[]>([]);
   const [resumen, setResumen] = useState<Resumen | null>(null);
@@ -440,6 +488,54 @@ function Dashboard() {
           </section>
         </>
       )}
+
+      <section className="db-table-section">
+        <h2 className="db-section-title">Pagos mensuales personales</h2>
+        <div className="db-table-wrapper">
+          <table className="db-table db-table--wide">
+            <thead>
+              <tr className="db-tr-year">
+                <th colSpan={2}></th>
+                {[2025, 2026, 2027, 2028].map(y => (
+                  <th key={y} colSpan={12} className="db-th-year">{y}</th>
+                ))}
+              </tr>
+              <tr>
+                <th>Item</th>
+                <th>Monto</th>
+                {ALL_MONTHS.map((m, i) => (
+                  <th key={m} className={`db-th-month${i === CURRENT_MONTH_INDEX ? " db-th-current" : ""}`}>{m}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {HISTORICO_ROWS.map(row => {
+                const monto = row.payments.find(p => p != null) ?? 0;
+                return (
+                  <tr key={row.item}>
+                    <td className="db-month-name">{row.item}</td>
+                    <td className="db-monto">{monto > 0 ? formatMonto(monto) : "—"}</td>
+                    {row.payments.map((p, i) => (
+                      <td key={i} className={`db-monto${i === CURRENT_MONTH_INDEX ? " db-monto-current" : ""}`}>{p != null ? formatMonto(p) : ""}</td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td style={{ fontWeight: 700 }}>Total</td>
+                <td></td>
+                {HISTORICO_TOTALS.map((t, i) => (
+                  <td key={i} className={`db-monto${i === CURRENT_MONTH_INDEX ? " db-monto-current" : ""}`} style={{ fontWeight: 700 }}>
+                    {t > 0 ? formatMonto(t) : ""}
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
 
       {showCreateModal && (
         <div className="db-overlay" onClick={() => setShowCreateModal(false)}>
