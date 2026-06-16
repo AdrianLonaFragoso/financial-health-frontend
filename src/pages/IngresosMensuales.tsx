@@ -14,13 +14,13 @@ import {
 } from "recharts";
 import { FaPlus, FaTrash, FaPen, FaFileCsv } from "react-icons/fa";
 import CsvImportModal from "../components/CsvImportModal";
+import { useMonth } from "../contexts/MonthContext";
 import {
   INGRESO_COLORS,
   MESES,
   formatMonto,
 } from "../data/constants";
 import type { Ingreso, MonthData } from "../data/constants";
-import { obtenerMeses } from "../services/mesesService";
 import { crearIngreso, actualizarIngreso, eliminarIngreso } from "../services/ingresosService";
 import "./IngresosMensuales.css";
 
@@ -29,8 +29,7 @@ function ingresoId(i: Ingreso, idx: number) {
 }
 
 function IngresosMensuales() {
-  const [meses, setMeses] = useState<MonthData[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState("");
+  const { meses, selectedMonth, setSelectedMonth, loading: mesesLoading, refreshMeses } = useMonth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,28 +45,9 @@ function IngresosMensuales() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
 
-  function currentMonthId(meses: MonthData[]) {
-    const now = new Date();
-    const label = `${MESES[now.getMonth()]} ${now.getFullYear()}`;
-    return meses.find((m) => m.label === label)?.id;
-  }
-
-  function cargarMeses() {
-    setLoading(true);
-    obtenerMeses()
-      .then((res) => {
-        setMeses(res.data);
-        if (res.data.length > 0 && !selectedMonth) {
-          setSelectedMonth(currentMonthId(res.data) ?? res.data[0].id);
-        }
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }
-
   useEffect(() => {
-    cargarMeses();
-  }, []);
+    if (meses.length > 0) setLoading(false);
+  }, [meses]);
 
   const { month, totalIngresos, totalGastos, pieData, balance } = useMemo(() => {
     if (!selectedMonth || meses.length === 0) {
@@ -109,9 +89,8 @@ function IngresosMensuales() {
       setNuevoConcepto("");
       setNuevoMonto("");
       setShowModal(false);
-      cargarMeses();
+      refreshMeses();
     } catch {
-      // error will be shown by cargarMeses
     } finally {
       setSubmitting(false);
     }
@@ -129,9 +108,8 @@ function IngresosMensuales() {
         monto: parseFloat(editMonto),
       });
       setEditTarget(null);
-      cargarMeses();
+      refreshMeses();
     } catch {
-      // error will be shown by cargarMeses
     } finally {
       setSubmitting(false);
     }
@@ -142,9 +120,8 @@ function IngresosMensuales() {
     try {
       await eliminarIngreso(selectedMonth, deleteTarget);
       setDeleteTarget(null);
-      cargarMeses();
+      refreshMeses();
     } catch {
-      // error will be shown by cargarMeses
     }
   }
 
@@ -156,17 +133,6 @@ function IngresosMensuales() {
     <div className="im-container">
       <header className="im-header">
         <h1 className="im-title">Ingresos Mensuales</h1>
-        <div className="im-month-selector">
-          {meses.map((m) => (
-            <button
-              key={m.id}
-              className={`im-month-btn ${m.id === selectedMonth ? "im-month-btn--active" : ""}`}
-              onClick={() => setSelectedMonth(m.id)}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
         <p className="im-subtitle">
           Total ingresos: {formatMonto(totalIngresos)}
         </p>
@@ -572,7 +538,7 @@ function IngresosMensuales() {
         <CsvImportModal
           type="ingreso"
           onClose={() => setShowImport(false)}
-          onSuccess={() => { setShowImport(false); cargarMeses(); }}
+          onSuccess={() => { setShowImport(false); refreshMeses(); }}
         />
       )}
     </div>

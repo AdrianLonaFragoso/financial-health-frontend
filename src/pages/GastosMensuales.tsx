@@ -7,8 +7,9 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { FaPlus, FaTrash, FaPen, FaFileCsv } from "react-icons/fa";
+import { FaPlus, FaTrash, FaPen, FaFileCsv, FaTable, FaChartPie } from "react-icons/fa";
 import CsvImportModal from "../components/CsvImportModal";
+import { useMonth } from "../contexts/MonthContext";
 import {
   CATEGORY_META,
   IDEAL_SPLIT,
@@ -16,7 +17,6 @@ import {
   formatMonto,
 } from "../data/constants";
 import type { Gasto, MonthData } from "../data/constants";
-import { obtenerMeses } from "../services/mesesService";
 import { crearGasto, actualizarGasto, eliminarGasto } from "../services/gastosService";
 
 import "./GastosMensuales.css";
@@ -76,8 +76,7 @@ function dateValueToFin(value: string): string {
 }
 
 function GastosMensuales() {
-  const [meses, setMeses] = useState<MonthData[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState("");
+  const { meses, selectedMonth, setSelectedMonth, loading: mesesLoading, refreshMeses } = useMonth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -104,28 +103,12 @@ function GastosMensuales() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
 
-  function currentMonthId(meses: MonthData[]) {
-    const now = new Date();
-    const label = `${MESES[now.getMonth()]} ${now.getFullYear()}`;
-    return meses.find((m) => m.label === label)?.id;
-  }
-
-  function cargarMeses() {
-    setLoading(true);
-    obtenerMeses()
-      .then((res) => {
-        setMeses(res.data);
-        if (res.data.length > 0 && !selectedMonth) {
-          setSelectedMonth(currentMonthId(res.data) ?? res.data[0].id);
-        }
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }
+  const [viewMode, setViewMode] = useState<"normal" | "table">("normal");
+  const [hideFutureMonths, setHideFutureMonths] = useState(false);
 
   useEffect(() => {
-    cargarMeses();
-  }, []);
+    if (meses.length > 0) setLoading(false);
+  }, [meses]);
 
   const { month, gastosParaMes, total, totalIngresos, porCategoria, pieData, totalIdeal } = useMemo(() => {
     if (!selectedMonth || meses.length === 0) {
@@ -207,6 +190,56 @@ function GastosMensuales() {
     return list;
   }, [gastosParaMes, search, sortKey, sortDir]);
 
+  const pagosData = useMemo(() => {
+    if (meses.length === 0) return { months: [], rows: [], totals: [] };
+
+    const conceptMap = new Map<string, { concepto: string; monto: number; categoria: string; fin: string }>();
+    const conceptMonths = new Map<string, Map<string, number>>();
+
+    for (const m of meses) {
+      for (const g of m.gastos) {
+        if (!conceptMap.has(g.concepto)) {
+          conceptMap.set(g.concepto, { concepto: g.concepto, monto: g.monto, categoria: g.categoria, fin: g.fin });
+        }
+        if (!conceptMonths.has(g.concepto)) {
+          conceptMonths.set(g.concepto, new Map());
+        }
+        conceptMonths.get(g.concepto)!.set(m.id, g.monto);
+      }
+    }
+
+    let rows = Array.from(conceptMap.values()).map((info) => {
+      const monthMap = conceptMonths.get(info.concepto)!;
+      return {
+        ...info,
+        payments: meses.map((m) => monthMap.get(m.id) ?? null),
+      };
+    });
+
+    if (hideFutureMonths) {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      rows = rows.filter((r) => {
+        if (r.fin === "indefinido") return true;
+        const parts = r.fin.split("-");
+        if (parts.length !== 3) return true;
+        const monthStr = parts[1]?.toLowerCase();
+        const yearStr = parts[2];
+        const endMonth = ({ ene:1, feb:2, mar:3, abr:4, may:5, jun:6, jul:7, ago:8, sep:9, oct:10, nov:11, dic:12 })[monthStr ?? ""];
+        const endYear = 2000 + parseInt(yearStr ?? "0", 10);
+        if (!endMonth || isNaN(endYear)) return true;
+        return endYear > currentYear || (endYear === currentYear && endMonth >= currentMonth);
+      });
+    }
+
+    rows.sort((a, b) => b.monto - a.monto);
+
+    const totals = meses.map((_, i) => rows.reduce((s, r) => s + (r.payments[i] ?? 0), 0));
+
+    return { months: meses, rows, totals };
+  }, [meses, hideFutureMonths]);
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -257,7 +290,7 @@ function GastosMensuales() {
       setNuevoFinIndefinido(true);
       setNuevoFinDate("");
       setShowModal(false);
-      cargarMeses();
+      refreshMeses();
     } catch {
     } finally {
       setSubmitting(false);
@@ -279,7 +312,7 @@ function GastosMensuales() {
         fin: finValue,
       });
       setEditTarget(null);
-      cargarMeses();
+      refreshMeses();
     } catch {
     } finally {
       setSubmitting(false);
@@ -291,7 +324,7 @@ function GastosMensuales() {
     try {
       await eliminarGasto(selectedMonth, deleteTarget);
       setDeleteTarget(null);
-      cargarMeses();
+      refreshMeses();
     } catch {
     }
   }
@@ -304,274 +337,336 @@ function GastosMensuales() {
     <div className="gm-container">
       <header className="gm-header">
         <h1 className="gm-title">Gastos Mensuales</h1>
-        <div className="gm-month-selector">
-          {meses.map((m) => (
-            <button
-              key={m.id}
-              className={`gm-month-btn ${m.id === selectedMonth ? "gm-month-btn--active" : ""}`}
-              onClick={() => setSelectedMonth(m.id)}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
         <p className="gm-subtitle">
-          Total: {formatMonto(total)}
+          {viewMode === "normal" ? `Total: ${formatMonto(total)}` : "Vista general de pagos"}
         </p>
+        <div className="gm-view-toggle">
+          <button
+            className={`gm-view-btn ${viewMode === "normal" ? "gm-view-btn--active" : ""}`}
+            onClick={() => setViewMode("normal")}
+          >
+            <FaChartPie /> Vista normal
+          </button>
+          <button
+            className={`gm-view-btn ${viewMode === "table" ? "gm-view-btn--active" : ""}`}
+            onClick={() => setViewMode("table")}
+          >
+            <FaTable /> Vista tabla
+          </button>
+        </div>
       </header>
 
-      <section className="gm-summary-cards">
-        {porCategoria.map((cat) => (
-          <div
-            key={cat.categoria}
-            className="gm-card"
-            style={{ borderTopColor: cat.color }}
-          >
-            <span className="gm-card-label">{cat.label}</span>
-            <span className="gm-card-value" style={{ color: cat.color }}>
-              {formatMonto(cat.monto)}
-            </span>
-            <span className="gm-card-pct">{cat.pct.toFixed(1)}%</span>
-          </div>
-        ))}
-      </section>
-
-      <section className="gm-chart-section">
-        <div className="gm-chart-card">
-          <h2 className="gm-section-title">Distribución actual</h2>
-          <ResponsiveContainer width="100%" height={320}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={70}
-                outerRadius={130}
-                paddingAngle={3}
+      {viewMode === "normal" ? (
+        <>
+          <section className="gm-summary-cards">
+            {porCategoria.map((cat) => (
+              <div
+                key={cat.categoria}
+                className="gm-card"
+                style={{ borderTopColor: cat.color }}
               >
-                {pieData.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                formatter={(value: unknown) =>
-                  value != null ? formatMonto(Number(value)) : ""
-                }
-                contentStyle={{
-                  background: "var(--color-surface)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: 8,
-                  color: "var(--color-text)",
-                }}
-              />
-              <Legend
-                formatter={(value: string) => (
-                  <span style={{ color: "var(--color-text)" }}>{value}</span>
-                )}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="gm-chart-card">
-          <h2 className="gm-section-title">Meta ideal 50/30/20</h2>
-          <ResponsiveContainer width="100%" height={320}>
-            <PieChart>
-              <Pie
-                data={IDEAL_SPLIT}
-                dataKey="percentage"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={70}
-                outerRadius={130}
-                paddingAngle={3}
-              >
-                {IDEAL_SPLIT.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                formatter={(value: unknown) =>
-                  value != null ? `${Number(value)}%` : ""
-                }
-                contentStyle={{
-                  background: "var(--color-surface)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: 8,
-                  color: "var(--color-text)",
-                }}
-              />
-              <Legend
-                formatter={(value: string) => (
-                  <span style={{ color: "var(--color-text)" }}>{value}</span>
-                )}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
-
-      <section className="gm-compare-section">
-        <h2 className="gm-section-title">Comparativa: Actual vs Ideal</h2>
-        <div className="gm-compare-bars">
-          {[
-            {
-              label: "Necesidades (50%)",
-              ideal: totalIdeal.necesidades,
-              actual: actualNeeds?.monto ?? 0,
-              color: "#4caf50",
-            },
-            {
-              label: "Estilo de vida (30%)",
-              ideal: totalIdeal.estiloVida,
-              actual: actualLifestyle?.monto ?? 0,
-              color: "#ff9800",
-            },
-            {
-              label: "Ahorro (20%)",
-              ideal: totalIdeal.ahorro,
-              actual: actualSavings?.monto ?? 0,
-              color: "#2196f3",
-            },
-          ].map((item) => {
-            const pctActual = totalIngresos > 0 ? (item.actual / totalIngresos) * 100 : 0;
-            const pctIdeal = totalIngresos > 0 ? (item.ideal / totalIngresos) * 100 : 0;
-            const maxVal = Math.max(item.actual, item.ideal, 1);
-            return (
-              <div key={item.label} className="gm-compare-row">
-                <span className="gm-compare-label">{item.label}</span>
-                <div className="gm-compare-bars-wrapper">
-                  <div className="gm-bar-track">
-                    <div
-                      className="gm-bar-fill gm-bar-actual"
-                      style={{
-                        width: `${(item.actual / maxVal) * 100}%`,
-                        background: item.color,
-                      }}
-                      title={`Actual: ${formatMonto(item.actual)} (${pctActual.toFixed(1)}%)`}
-                    />
-                  </div>
-                  <div className="gm-bar-track">
-                    <div
-                      className="gm-bar-fill gm-bar-ideal"
-                      style={{
-                        width: `${(item.ideal / maxVal) * 100}%`,
-                        background: item.color,
-                      }}
-                      title={`Ideal: ${formatMonto(item.ideal)} (${pctIdeal.toFixed(1)}%)`}
-                    />
-                  </div>
-                </div>
-                <div className="gm-compare-values">
-                  <span style={{ color: item.color }}>
-                    {formatMonto(item.actual)}
-                  </span>
-                  <span style={{ color: item.color, opacity: 0.6 }}>
-                    {formatMonto(item.ideal)}
-                  </span>
-                </div>
+                <span className="gm-card-label">{cat.label}</span>
+                <span className="gm-card-value" style={{ color: cat.color }}>
+                  {formatMonto(cat.monto)}
+                </span>
+                <span className="gm-card-pct">{cat.pct.toFixed(1)}%</span>
               </div>
-            );
-          })}
-        </div>
-      </section>
+            ))}
+          </section>
 
-      <section className="gm-table-section">
-        <div className="gm-table-header">
-          <h2 className="gm-section-title">Detalle de gastos</h2>
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-            <input
-              className="gm-search"
-              type="text"
-              placeholder="Buscar..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <button className="gm-add-btn" onClick={() => setShowModal(true)}>
-              <FaPlus />
-              Agregar gasto
-            </button>
-            <button className="gm-add-btn" onClick={() => setShowImport(true)}>
-              <FaFileCsv />
-              Importar CSV
-            </button>
-          </div>
-        </div>
-        <div className="gm-table-wrapper">
-          <table className="gm-table">
-            <thead>
-              <tr>
-                <th className="gm-th-sort" onClick={() => toggleSort("concepto")}>
-                  Concepto{sortArrow("concepto")}
-                </th>
-                <th className="gm-th-sort" onClick={() => toggleSort("monto")}>
-                  Mensualidad{sortArrow("monto")}
-                </th>
-                <th className="gm-th-sort" onClick={() => toggleSort("categoria")}>
-                  Categoría{sortArrow("categoria")}
-                </th>
-                <th className="gm-th-sort" onClick={() => toggleSort("fin")}>
-                  Vence{sortArrow("fin")}
-                </th>
-                <th className="gm-th-sort" onClick={() => toggleSort("restantes")}>
-                  P/Restantes{sortArrow("restantes")}
-                </th>
-                <th className="gm-th-acciones">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredGastos.map((g, i) => {
-                const meta = CATEGORY_META[g.categoria];
+          <section className="gm-chart-section">
+            <div className="gm-chart-card">
+              <h2 className="gm-section-title">Distribución actual</h2>
+              <ResponsiveContainer width="100%" height={320}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={130}
+                    paddingAngle={3}
+                  >
+                    {pieData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: unknown) =>
+                      value != null ? formatMonto(Number(value)) : ""
+                    }
+                    contentStyle={{
+                      background: "var(--color-surface)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 8,
+                      color: "var(--color-text)",
+                    }}
+                  />
+                  <Legend
+                    formatter={(value: string) => (
+                      <span style={{ color: "var(--color-text)" }}>{value}</span>
+                    )}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="gm-chart-card">
+              <h2 className="gm-section-title">Meta ideal 50/30/20</h2>
+              <ResponsiveContainer width="100%" height={320}>
+                <PieChart>
+                  <Pie
+                    data={IDEAL_SPLIT}
+                    dataKey="percentage"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={130}
+                    paddingAngle={3}
+                  >
+                    {IDEAL_SPLIT.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: unknown) =>
+                      value != null ? `${Number(value)}%` : ""
+                    }
+                    contentStyle={{
+                      background: "var(--color-surface)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 8,
+                      color: "var(--color-text)",
+                    }}
+                  />
+                  <Legend
+                    formatter={(value: string) => (
+                      <span style={{ color: "var(--color-text)" }}>{value}</span>
+                    )}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+
+          <section className="gm-compare-section">
+            <h2 className="gm-section-title">Comparativa: Actual vs Ideal</h2>
+            <div className="gm-compare-bars">
+              {[
+                {
+                  label: "Necesidades (50%)",
+                  ideal: totalIdeal.necesidades,
+                  actual: actualNeeds?.monto ?? 0,
+                  color: "#4caf50",
+                },
+                {
+                  label: "Estilo de vida (30%)",
+                  ideal: totalIdeal.estiloVida,
+                  actual: actualLifestyle?.monto ?? 0,
+                  color: "#ff9800",
+                },
+                {
+                  label: "Ahorro (20%)",
+                  ideal: totalIdeal.ahorro,
+                  actual: actualSavings?.monto ?? 0,
+                  color: "#2196f3",
+                },
+              ].map((item) => {
+                const pctActual = totalIngresos > 0 ? (item.actual / totalIngresos) * 100 : 0;
+                const pctIdeal = totalIngresos > 0 ? (item.ideal / totalIngresos) * 100 : 0;
+                const maxVal = Math.max(item.actual, item.ideal, 1);
                 return (
-                  <tr key={i}>
-                    <td data-label="Concepto">{g.concepto}</td>
-                    <td data-label="Mensualidad" className="gm-monto">
-                      {formatMonto(g.monto)}
-                    </td>
-                    <td data-label="Categoría">
-                      <span
-                        className="gm-badge"
-                        style={{
-                          background: meta ? `${meta.color}22` : "#a0a6c022",
-                          color: meta?.color ?? "#a0a6c0",
-                          borderColor: meta?.color ?? "#a0a6c0",
-                        }}
-                      >
-                        {g.categoria}
+                  <div key={item.label} className="gm-compare-row">
+                    <span className="gm-compare-label">{item.label}</span>
+                    <div className="gm-compare-bars-wrapper">
+                      <div className="gm-bar-track">
+                        <div
+                          className="gm-bar-fill gm-bar-actual"
+                          style={{
+                            width: `${(item.actual / maxVal) * 100}%`,
+                            background: item.color,
+                          }}
+                          title={`Actual: ${formatMonto(item.actual)} (${pctActual.toFixed(1)}%)`}
+                        />
+                      </div>
+                      <div className="gm-bar-track">
+                        <div
+                          className="gm-bar-fill gm-bar-ideal"
+                          style={{
+                            width: `${(item.ideal / maxVal) * 100}%`,
+                            background: item.color,
+                          }}
+                          title={`Ideal: ${formatMonto(item.ideal)} (${pctIdeal.toFixed(1)}%)`}
+                        />
+                      </div>
+                    </div>
+                    <div className="gm-compare-values">
+                      <span style={{ color: item.color }}>
+                        {formatMonto(item.actual)}
                       </span>
-                    </td>
-                    <td data-label="Vence" className="gm-fin">
-                      {g.fin}
-                    </td>
-                    <td data-label="P/Restantes">
-                      {renderRestantes(g.fin)}
-                    </td>
-                    <td data-label="Acciones" className="gm-acciones-cell">
-                      <button
-                        className="gm-action-btn"
-                        title="Editar gasto"
-                        onClick={() => openEdit(g)}
-                      >
-                        <FaPen />
-                      </button>
-                      <button
-                        className="gm-action-btn gm-action-btn--delete"
-                        title="Eliminar gasto"
-                        onClick={() => setDeleteTarget(g.id ?? `tmp-${i}`)}
-                      >
-                        <FaTrash />
-                      </button>
-                    </td>
-                  </tr>
+                      <span style={{ color: item.color, opacity: 0.6 }}>
+                        {formatMonto(item.ideal)}
+                      </span>
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            </div>
+          </section>
+
+          <section className="gm-table-section">
+            <div className="gm-table-header">
+              <h2 className="gm-section-title">Detalle de gastos</h2>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <input
+                  className="gm-search"
+                  type="text"
+                  placeholder="Buscar..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                <button className="gm-add-btn" onClick={() => setShowModal(true)}>
+                  <FaPlus />
+                  Agregar gasto
+                </button>
+                <button className="gm-add-btn" onClick={() => setShowImport(true)}>
+                  <FaFileCsv />
+                  Importar CSV
+                </button>
+              </div>
+            </div>
+            <div className="gm-table-wrapper">
+              <table className="gm-table">
+                <thead>
+                  <tr>
+                    <th className="gm-th-sort" onClick={() => toggleSort("concepto")}>
+                      Concepto{sortArrow("concepto")}
+                    </th>
+                    <th className="gm-th-sort" onClick={() => toggleSort("monto")}>
+                      Mensualidad{sortArrow("monto")}
+                    </th>
+                    <th className="gm-th-sort" onClick={() => toggleSort("categoria")}>
+                      Categoría{sortArrow("categoria")}
+                    </th>
+                    <th className="gm-th-sort" onClick={() => toggleSort("fin")}>
+                      Vence{sortArrow("fin")}
+                    </th>
+                    <th className="gm-th-sort" onClick={() => toggleSort("restantes")}>
+                      P/Restantes{sortArrow("restantes")}
+                    </th>
+                    <th className="gm-th-acciones">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredGastos.map((g, i) => {
+                    const meta = CATEGORY_META[g.categoria];
+                    return (
+                      <tr key={i}>
+                        <td data-label="Concepto">{g.concepto}</td>
+                        <td data-label="Mensualidad" className="gm-monto">
+                          {formatMonto(g.monto)}
+                        </td>
+                        <td data-label="Categoría">
+                          <span
+                            className="gm-badge"
+                            style={{
+                              background: meta ? `${meta.color}22` : "#a0a6c022",
+                              color: meta?.color ?? "#a0a6c0",
+                              borderColor: meta?.color ?? "#a0a6c0",
+                            }}
+                          >
+                            {g.categoria}
+                          </span>
+                        </td>
+                        <td data-label="Vence" className="gm-fin">
+                          {g.fin}
+                        </td>
+                        <td data-label="P/Restantes">
+                          {renderRestantes(g.fin)}
+                        </td>
+                        <td data-label="Acciones" className="gm-acciones-cell">
+                          <button
+                            className="gm-action-btn"
+                            title="Editar gasto"
+                            onClick={() => openEdit(g)}
+                          >
+                            <FaPen />
+                          </button>
+                          <button
+                            className="gm-action-btn gm-action-btn--delete"
+                            title="Eliminar gasto"
+                            onClick={() => setDeleteTarget(g.id ?? `tmp-${i}`)}
+                          >
+                            <FaTrash />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      ) : (
+        <section className="gm-table-section">
+          <div className="gm-table-header">
+            <h2 className="gm-section-title">Pagos mensuales personales</h2>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+              <label className="gm-filter-checkbox">
+                <input
+                  type="checkbox"
+                  checked={hideFutureMonths}
+                  onChange={(e) => setHideFutureMonths(e.target.checked)}
+                />
+                Ocultar finalizados
+              </label>
+              <button className="gm-add-btn" onClick={() => setShowImport(true)}>
+                <FaFileCsv />
+                Importar CSV
+              </button>
+            </div>
+          </div>
+          <div className="gm-table-wrapper">
+            <table className="gm-table gm-table--wide">
+              <thead>
+                <tr>
+                  <th>Concepto</th>
+                  <th>Monto</th>
+                  {pagosData.months.map((m) => (
+                    <th key={m.id} className="gm-th-month">{m.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {pagosData.rows.map((row) => (
+                  <tr key={row.concepto}>
+                    <td className="gm-month-name">{row.concepto}</td>
+                    <td className="gm-monto">{formatMonto(row.monto)}</td>
+                    {row.payments.map((p, i) => (
+                      <td key={i} className="gm-monto">{p != null ? formatMonto(p) : ""}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td style={{ fontWeight: 700 }}>Total</td>
+                  <td></td>
+                  {pagosData.totals.map((t, i) => (
+                    <td key={i} className="gm-monto" style={{ fontWeight: 700 }}>
+                      {t > 0 ? formatMonto(t) : ""}
+                    </td>
+                  ))}
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+      )}
       {showModal && (
         <div className="gm-overlay" onClick={() => setShowModal(false)}>
           <div className="gm-modal" onClick={(e) => e.stopPropagation()}>
@@ -775,7 +870,7 @@ function GastosMensuales() {
         <CsvImportModal
           type="gasto"
           onClose={() => setShowImport(false)}
-          onSuccess={() => { setShowImport(false); cargarMeses(); }}
+          onSuccess={() => { setShowImport(false); refreshMeses(); }}
         />
       )}
     </div>

@@ -1,8 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import {
-  PieChart,
-  Pie,
-  Cell,
+  BarChart,
+  Bar,
   ResponsiveContainer,
   Tooltip,
   Legend,
@@ -12,15 +11,15 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { FaPlus, FaTrash, FaFileCsv } from "react-icons/fa";
-import CsvImportModal from "../components/CsvImportModal";
+import { FaPlus, FaTrash } from "react-icons/fa";
+import { useMonth } from "../contexts/MonthContext";
 import {
   CATEGORY_META,
   MESES,
   formatMonto,
 } from "../data/constants";
 import type { MonthData } from "../data/constants";
-import { obtenerMeses, crearMes, eliminarMes, obtenerResumen } from "../services/mesesService";
+import { crearMes, eliminarMes, obtenerResumen } from "../services/mesesService";
 
 import "./Dashboard.css";
 
@@ -31,19 +30,9 @@ interface Resumen {
   balance: number;
 }
 
-const INGRESO_COLOR_MAP: Record<string, string> = {
-  Sueldo: "#f59e0b",
-  Vales: "#00d8ff",
-  Intereses: "#b04cff",
-  "Fondo de ahorro": "#2196f3",
-};
-
-
-
 function Dashboard() {
-  const [meses, setMeses] = useState<MonthData[]>([]);
+  const { meses, selectedMonth, setSelectedMonth, refreshMeses } = useMonth();
   const [resumen, setResumen] = useState<Resumen | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,43 +42,28 @@ function Dashboard() {
   const [creando, setCreando] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [hideFutureMonths, setHideFutureMonths] = useState(false);
-  const [showImport, setShowImport] = useState(false);
 
-  function cargarDatos() {
+  function cargarResumen() {
     setLoading(true);
-    Promise.all([
-      obtenerMeses(),
-      obtenerResumen(),
-    ])
-      .then(([mesRes, resumenRes]) => {
-        setMeses(mesRes.data);
-        setResumen(resumenRes.data);
-        if (mesRes.data.length > 0 && !selectedMonth) {
-          const now = new Date();
-          const currentLabel = `${MESES[now.getMonth()]} ${now.getFullYear()}`;
-          const current = mesRes.data.find((m) => m.label === currentLabel);
-          setSelectedMonth(current?.id ?? mesRes.data[0].id);
-        }
-      })
+    obtenerResumen()
+      .then((res) => setResumen(res.data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }
 
   useEffect(() => {
-    cargarDatos();
+    cargarResumen();
   }, []);
 
-  const { month, totalIngresos, totalGastos, balance, porCategoria, pieIngresos, pieGastos } = useMemo(() => {
+  const { month, totalIngresos, totalGastos, balance, ahorroInversion, porCategoria } = useMemo(() => {
     if (!selectedMonth || meses.length === 0) {
       return {
         month: null as MonthData | null,
         totalIngresos: 0,
         totalGastos: 0,
         balance: 0,
+        ahorroInversion: 0,
         porCategoria: [] as { categoria: string; monto: number; color: string; label: string }[],
-        pieIngresos: [] as { name: string; value: number; color: string }[],
-        pieGastos: [] as { name: string; value: number; color: string }[],
       };
     }
     const month = meses.find((m) => m.id === selectedMonth)!;
@@ -97,6 +71,7 @@ function Dashboard() {
     const totalIngresos = month.ingresos.reduce((s, i) => s + i.monto, 0);
     const totalGastos = gastosMes.reduce((s, g) => s + g.monto, 0);
     const balance = totalIngresos - totalGastos;
+    const ahorroInversion = 5000;
 
     const acc: Record<string, number> = {};
     for (const g of gastosMes) {
@@ -109,19 +84,7 @@ function Dashboard() {
       label: CATEGORY_META[k]?.label ?? k,
     }));
 
-    const pieIngresos = month.ingresos.map((i) => ({
-      name: i.concepto,
-      value: i.monto,
-      color: INGRESO_COLOR_MAP[i.concepto] ?? "#a0a6c0",
-    }));
-
-    const pieGastos = porCategoria.map((c) => ({
-      name: c.label,
-      value: Math.round(c.monto * 100) / 100,
-      color: c.color,
-    }));
-
-    return { month, totalIngresos, totalGastos, balance, porCategoria, pieIngresos, pieGastos };
+    return { month, totalIngresos, totalGastos, balance, ahorroInversion, porCategoria };
   }, [selectedMonth, meses]);
 
   const mesesConTotales = useMemo(() => {
@@ -132,55 +95,12 @@ function Dashboard() {
     });
   }, [meses]);
 
-  const pagosData = useMemo(() => {
-    if (meses.length === 0) return { months: [], rows: [], totals: [] };
 
-    const conceptMap = new Map<string, { concepto: string; monto: number; categoria: string; fin: string }>();
-    const conceptMonths = new Map<string, Map<string, number>>();
 
-    for (const m of meses) {
-      for (const g of m.gastos) {
-        if (!conceptMap.has(g.concepto)) {
-          conceptMap.set(g.concepto, { concepto: g.concepto, monto: g.monto, categoria: g.categoria, fin: g.fin });
-        }
-        if (!conceptMonths.has(g.concepto)) {
-          conceptMonths.set(g.concepto, new Map());
-        }
-        conceptMonths.get(g.concepto)!.set(m.id, g.monto);
-      }
-    }
-
-    let rows = Array.from(conceptMap.values()).map((info) => {
-      const monthMap = conceptMonths.get(info.concepto)!;
-      return {
-        ...info,
-        payments: meses.map((m) => monthMap.get(m.id) ?? null),
-      };
-    });
-
-    if (hideFutureMonths) {
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth() + 1;
-      rows = rows.filter((r) => {
-        if (r.fin === "indefinido") return true;
-        const parts = r.fin.split("-");
-        if (parts.length !== 3) return true;
-        const monthStr = parts[1]?.toLowerCase();
-        const yearStr = parts[2];
-        const endMonth = ({ ene:1, feb:2, mar:3, abr:4, may:5, jun:6, jul:7, ago:8, sep:9, oct:10, nov:11, dic:12 })[monthStr ?? ""];
-        const endYear = 2000 + parseInt(yearStr ?? "0", 10);
-        if (!endMonth || isNaN(endYear)) return true;
-        return endYear > currentYear || (endYear === currentYear && endMonth >= currentMonth);
-      });
-    }
-
-    rows.sort((a, b) => b.monto - a.monto);
-
-    const totals = meses.map((_, i) => rows.reduce((s, r) => s + (r.payments[i] ?? 0), 0));
-
-    return { months: meses, rows, totals };
-  }, [meses, hideFutureMonths]);
+  async function refreshAll() {
+    await refreshMeses();
+    cargarResumen();
+  }
 
   async function handleCrearMes(e: React.FormEvent) {
     e.preventDefault();
@@ -193,7 +113,7 @@ function Dashboard() {
         autoPopulate: true,
       });
       setShowCreateModal(false);
-      cargarDatos();
+      refreshAll();
     } catch {
     } finally {
       setCreando(false);
@@ -205,8 +125,7 @@ function Dashboard() {
     try {
       await eliminarMes(deleteTarget);
       setDeleteTarget(null);
-      if (selectedMonth === deleteTarget) setSelectedMonth("");
-      cargarDatos();
+      refreshAll();
     } catch {
     }
   }
@@ -218,248 +137,74 @@ function Dashboard() {
   return (
     <div className="db-container">
       <header className="db-header">
-        <h1 className="db-title">Dashboard</h1>
-        <p className="db-subtitle">Control financiero mensual</p>
+        <h1 className="db-title">Bienvenido Adrian</h1>
+        <p className="db-subtitle">{new Date().toLocaleDateString("es-MX", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
       </header>
-
-      {resumen.totalMeses > 0 && (
-        <>
-          <section className="db-global-cards">
-            <div className="db-card" style={{ borderTopColor: "#b04cff" }}>
-              <span className="db-card-label">Meses registrados</span>
-              <span className="db-card-value" style={{ color: "#b04cff" }}>
-                {resumen.totalMeses}
-              </span>
-            </div>
-            <div className="db-card" style={{ borderTopColor: "#4caf50" }}>
-              <span className="db-card-label">Ingresos totales</span>
-              <span className="db-card-value" style={{ color: "#4caf50" }}>
-                {formatMonto(resumen.totalIngresos)}
-              </span>
-            </div>
-            <div className="db-card" style={{ borderTopColor: "#ff4fd8" }}>
-              <span className="db-card-label">Gastos totales</span>
-              <span className="db-card-value" style={{ color: "#ff4fd8" }}>
-                {formatMonto(resumen.totalGastos)}
-              </span>
-            </div>
-            <div className="db-card" style={{ borderTopColor: resumen.balance >= 0 ? "#4caf50" : "#ff4fd8" }}>
-              <span className="db-card-label">Balance global</span>
-              <span className="db-card-value" style={{ color: resumen.balance >= 0 ? "#4caf50" : "#ff4fd8" }}>
-                {resumen.balance >= 0 ? "+" : ""}{formatMonto(resumen.balance)}
-              </span>
-            </div>
-          </section>
-
-          {mesesConTotales.length > 1 && (
-            <section className="db-chart-card">
-              <h2 className="db-section-title">Tendencia mensual</h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={mesesConTotales}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis dataKey="label" stroke="var(--color-text-muted)" fontSize={13} />
-                  <YAxis
-                    stroke="var(--color-text-muted)"
-                    fontSize={12}
-                    tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
-                  />
-                  <Tooltip
-                    formatter={(value: unknown) =>
-                      value != null ? formatMonto(Number(value)) : ""
-                    }
-                    contentStyle={{
-                      background: "var(--color-surface)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: 8,
-                      color: "var(--color-text)",
-                    }}
-                  />
-                  <Legend
-                    formatter={(value: string) => (
-                      <span style={{ color: "var(--color-text)" }}>{value}</span>
-                    )}
-                  />
-                  <Line type="monotone" dataKey="totalIngresos" name="Ingresos" stroke="#4caf50" strokeWidth={2} dot={{ fill: "#4caf50", r: 4 }} />
-                  <Line type="monotone" dataKey="totalGastos" name="Gastos" stroke="#ff4fd8" strokeWidth={2} dot={{ fill: "#ff4fd8", r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </section>
-          )}
-
-          <section className="db-table-section">
-            <div className="db-table-header">
-              <h2 className="db-section-title">Vista global por mes</h2>
-              <button className="db-add-btn" onClick={() => setShowCreateModal(true)}>
-                <FaPlus />
-                Agregar mes
-              </button>
-            </div>
-            <div className="db-table-wrapper">
-              <table className="db-table">
-                <thead>
-                  <tr>
-                    <th>Mes</th>
-                    <th>Ingresos</th>
-                    <th>Gastos</th>
-                    <th>Balance</th>
-                    <th>% Utilizado</th>
-                    <th className="db-th-acciones">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mesesConTotales.map((m) => (
-                    <tr key={m.id}>
-                      <td data-label="Mes" className="db-month-name">{m.label}</td>
-                      <td data-label="Ingresos" className="db-monto db-pos">
-                        {formatMonto(m.totalIngresos)}
-                      </td>
-                      <td data-label="Gastos" className="db-monto db-neg">
-                        {formatMonto(m.totalGastos)}
-                      </td>
-                      <td data-label="Balance" className="db-monto" style={{ color: m.balance >= 0 ? "#4caf50" : "#ff4fd8" }}>
-                        {m.balance >= 0 ? "+" : ""}{formatMonto(m.balance)}
-                      </td>
-                      <td data-label="% Utilizado" className="db-monto">
-                        {m.totalIngresos > 0
-                          ? `${((m.totalGastos / m.totalIngresos) * 100).toFixed(1)}%`
-                          : "—"}
-                      </td>
-                      <td data-label="Acciones" className="db-acciones-cell">
-                        <button
-                          className="db-action-btn db-action-btn--delete"
-                          title="Eliminar mes"
-                          onClick={() => setDeleteTarget(m.id)}
-                        >
-                          <FaTrash />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </>
-      )}
 
       {month && (
         <>
-          <div className="db-month-bar">
-            <div className="db-month-selector">
-              {meses.map((m) => (
-                <button
-                  key={m.id}
-                  className={`db-month-btn ${m.id === selectedMonth ? "db-month-btn--active" : ""}`}
-                  onClick={() => setSelectedMonth(m.id)}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            {meses.length === 0 && (
-              <button className="db-add-btn" onClick={() => setShowCreateModal(true)}>
-                <FaPlus />
-                Agregar mes
-              </button>
-            )}
-          </div>
-
-          <section className="db-summary-cards">
-            <div className="db-card" style={{ borderTopColor: "#4caf50" }}>
-              <span className="db-card-label">Ingresos</span>
-              <span className="db-card-value" style={{ color: "#4caf50" }}>
-                {formatMonto(totalIngresos)}
-              </span>
-            </div>
-            <div className="db-card" style={{ borderTopColor: "#ff4fd8" }}>
-              <span className="db-card-label">Gastos</span>
-              <span className="db-card-value" style={{ color: "#ff4fd8" }}>
-                {formatMonto(totalGastos)}
-              </span>
-            </div>
-            <div className="db-card" style={{ borderTopColor: balance >= 0 ? "#4caf50" : "#ff4fd8" }}>
-              <span className="db-card-label">Balance</span>
-              <span className="db-card-value" style={{ color: balance >= 0 ? "#4caf50" : "#ff4fd8" }}>
-                {balance >= 0 ? "+" : ""}{formatMonto(balance)}
-              </span>
-            </div>
-          </section>
-
-          <section className="db-chart-section">
-            <div className="db-chart-card">
-              <h2 className="db-section-title">Ingresos</h2>
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie
-                    data={pieIngresos}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={110}
-                    paddingAngle={3}
-                  >
-                    {pieIngresos.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: unknown) =>
-                      value != null ? formatMonto(Number(value)) : ""
-                    }
-                    contentStyle={{
-                      background: "var(--color-surface)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: 8,
-                      color: "var(--color-text)",
-                    }}
-                  />
-                  <Legend
-                    formatter={(value: string) => (
-                      <span style={{ color: "var(--color-text)" }}>{value}</span>
-                    )}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+          <section className="db-month-overview">
+            <div className="db-month-cards">
+              <div className="db-card" style={{ borderTopColor: "#0ea5e9" }}>
+                <span className="db-card-label">Ingresos</span>
+                <span className="db-card-value" style={{ color: "#0ea5e9" }}>
+                  {formatMonto(totalIngresos)}
+                </span>
+              </div>
+              <div className="db-card" style={{ borderTopColor: "#ff4fd8" }}>
+                <span className="db-card-label">Gastos</span>
+                <span className="db-card-value" style={{ color: "#ff4fd8" }}>
+                  {formatMonto(totalGastos)}
+                </span>
+              </div>
+              <div className="db-card" style={{ borderTopColor: balance >= 0 ? "#22c55e" : "#ef4444" }}>
+                <span className="db-card-label">Balance</span>
+                <span className="db-card-value" style={{ color: balance >= 0 ? "#22c55e" : "#ef4444" }}>
+                  {balance >= 0 ? "+" : ""}{formatMonto(balance)}
+                </span>
+              </div>
+              <div className="db-card" style={{ borderTopColor: "#2196f3" }}>
+                <span className="db-card-label">Ahorro e Inversión</span>
+                <span className="db-card-value" style={{ color: "#2196f3" }}>
+                  {formatMonto(ahorroInversion)}
+                </span>
+              </div>
             </div>
 
-            <div className="db-chart-card">
-              <h2 className="db-section-title">Gastos por categoría</h2>
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie
-                    data={pieGastos}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={110}
-                    paddingAngle={3}
-                  >
-                    {pieGastos.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: unknown) =>
-                      value != null ? formatMonto(Number(value)) : ""
-                    }
-                    contentStyle={{
-                      background: "var(--color-surface)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: 8,
-                      color: "var(--color-text)",
-                    }}
-                  />
-                  <Legend
-                    formatter={(value: string) => (
-                      <span style={{ color: "var(--color-text)" }}>{value}</span>
-                    )}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="db-month-chart">
+              <section className="db-chart-card db-chart-card--comparison">
+                <h2 className="db-section-title">Comparativa mensual</h2>
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={[{ name: "", Ingresos: totalIngresos, Gastos: totalGastos, "Ahorro e Inversión": 5000 }]}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                    <XAxis dataKey="name" hide />
+                    <YAxis
+                      stroke="var(--color-text-muted)"
+                      fontSize={12}
+                      tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip
+                      formatter={(value: unknown) =>
+                        value != null ? formatMonto(Number(value)) : ""
+                      }
+                      contentStyle={{
+                        background: "var(--color-surface)",
+                        border: "1px solid var(--color-border)",
+                        borderRadius: 8,
+                        color: "var(--color-text)",
+                      }}
+                    />
+                    <Legend
+                      formatter={(value: string) => (
+                        <span style={{ color: "var(--color-text)" }}>{value}</span>
+                      )}
+                    />
+                    <Bar dataKey="Ingresos" fill="#0ea5e9" radius={[6, 6, 0, 0]} maxBarSize={80} />
+                    <Bar dataKey="Gastos" fill="#ff4fd8" radius={[6, 6, 0, 0]} maxBarSize={80} />
+                    <Bar dataKey="Ahorro e Inversión" fill="#2196f3" radius={[6, 6, 0, 0]} maxBarSize={80} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </section>
             </div>
           </section>
 
@@ -504,68 +249,127 @@ function Dashboard() {
         </>
       )}
 
-      <section className="db-table-section">
-        <div className="db-table-header">
-          <h2 className="db-section-title">Pagos mensuales personales</h2>
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-            <label className="db-filter-checkbox">
-              <input
-                type="checkbox"
-                checked={hideFutureMonths}
-                onChange={(e) => setHideFutureMonths(e.target.checked)}
-              />
-              Ocultar finalizados
-            </label>
-            <button className="db-add-btn" onClick={() => setShowImport(true)}>
-              <FaFileCsv />
-              Importar CSV
-            </button>
-          </div>
-        </div>
-        <div className="db-table-wrapper">
-          <table className="db-table db-table--wide">
-            <thead>
-              <tr>
-                <th>Concepto</th>
-                <th>Monto</th>
-                {pagosData.months.map((m) => (
-                  <th key={m.id} className="db-th-month">{m.label}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {pagosData.rows.map((row) => (
-                <tr key={row.concepto}>
-                  <td className="db-month-name">{row.concepto}</td>
-                  <td className="db-monto">{formatMonto(row.monto)}</td>
-                  {row.payments.map((p, i) => (
-                    <td key={i} className="db-monto">{p != null ? formatMonto(p) : ""}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td style={{ fontWeight: 700 }}>Total</td>
-                <td></td>
-                {pagosData.totals.map((t, i) => (
-                  <td key={i} className="db-monto" style={{ fontWeight: 700 }}>
-                    {t > 0 ? formatMonto(t) : ""}
-                  </td>
-                ))}
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </section>
+      {resumen.totalMeses > 0 && (
+        <>
+          <section className="db-global-cards">
+            <div className="db-card" style={{ borderTopColor: "#b04cff" }}>
+              <span className="db-card-label">Meses registrados</span>
+              <span className="db-card-value" style={{ color: "#b04cff" }}>
+                {resumen.totalMeses}
+              </span>
+            </div>
+            <div className="db-card" style={{ borderTopColor: "#0ea5e9" }}>
+              <span className="db-card-label">Ingresos totales</span>
+              <span className="db-card-value" style={{ color: "#0ea5e9" }}>
+                {formatMonto(resumen.totalIngresos)}
+              </span>
+            </div>
+            <div className="db-card" style={{ borderTopColor: "#ff4fd8" }}>
+              <span className="db-card-label">Gastos totales</span>
+              <span className="db-card-value" style={{ color: "#ff4fd8" }}>
+                {formatMonto(resumen.totalGastos)}
+              </span>
+            </div>
+            <div className="db-card" style={{ borderTopColor: resumen.balance >= 0 ? "#22c55e" : "#ef4444" }}>
+              <span className="db-card-label">Balance global</span>
+              <span className="db-card-value" style={{ color: resumen.balance >= 0 ? "#22c55e" : "#ef4444" }}>
+                {resumen.balance >= 0 ? "+" : ""}{formatMonto(resumen.balance)}
+              </span>
+            </div>
+          </section>
 
-      {showImport && (
-        <CsvImportModal
-          type="gasto"
-          onClose={() => setShowImport(false)}
-          onSuccess={() => { setShowImport(false); cargarDatos(); }}
-        />
+          {mesesConTotales.length > 1 && (
+            <section className="db-chart-card">
+              <h2 className="db-section-title">Tendencia mensual</h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={mesesConTotales}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                  <XAxis dataKey="label" stroke="var(--color-text-muted)" fontSize={13} />
+                  <YAxis
+                    stroke="var(--color-text-muted)"
+                    fontSize={12}
+                    tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip
+                    formatter={(value: unknown) =>
+                      value != null ? formatMonto(Number(value)) : ""
+                    }
+                    contentStyle={{
+                      background: "var(--color-surface)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 8,
+                      color: "var(--color-text)",
+                    }}
+                  />
+                  <Legend
+                    formatter={(value: string) => (
+                      <span style={{ color: "var(--color-text)" }}>{value}</span>
+                    )}
+                  />
+                  <Line type="monotone" dataKey="totalIngresos" name="Ingresos" stroke="#0ea5e9" strokeWidth={2} dot={{ fill: "#0ea5e9", r: 4 }} />
+                  <Line type="monotone" dataKey="totalGastos" name="Gastos" stroke="#ff4fd8" strokeWidth={2} dot={{ fill: "#ff4fd8", r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </section>
+          )}
+
+          <section className="db-table-section">
+            <div className="db-table-header">
+              <h2 className="db-section-title">Vista global por mes</h2>
+              <button className="db-add-btn" onClick={() => setShowCreateModal(true)}>
+                <FaPlus />
+                Agregar mes
+              </button>
+            </div>
+            <div className="db-table-wrapper">
+              <table className="db-table">
+                <thead>
+                  <tr>
+                    <th>Mes</th>
+                    <th>Ingresos</th>
+                    <th>Gastos</th>
+                    <th>Balance</th>
+                    <th>% Utilizado</th>
+                    <th className="db-th-acciones">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mesesConTotales.map((m) => (
+                    <tr key={m.id}>
+                      <td data-label="Mes" className="db-month-name">{m.label}</td>
+                      <td data-label="Ingresos" className="db-monto db-pos">
+                        {formatMonto(m.totalIngresos)}
+                      </td>
+                      <td data-label="Gastos" className="db-monto db-neg">
+                        {formatMonto(m.totalGastos)}
+                      </td>
+                      <td data-label="Balance" className="db-monto" style={{ color: m.balance >= 0 ? "#22c55e" : "#ef4444" }}>
+                        {m.balance >= 0 ? "+" : ""}{formatMonto(m.balance)}
+                      </td>
+                      <td data-label="% Utilizado" className="db-monto">
+                        {m.totalIngresos > 0
+                          ? `${((m.totalGastos / m.totalIngresos) * 100).toFixed(1)}%`
+                          : "—"}
+                      </td>
+                      <td data-label="Acciones" className="db-acciones-cell">
+                        <button
+                          className="db-action-btn db-action-btn--delete"
+                          title="Eliminar mes"
+                          onClick={() => setDeleteTarget(m.id)}
+                        >
+                          <FaTrash />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
       )}
+
+
 
       {showCreateModal && (
         <div className="db-overlay" onClick={() => setShowCreateModal(false)}>

@@ -8,7 +8,6 @@
 
 .gm-header {
   margin-bottom: 2rem;
-  text-align: center;
 }
 
 .gm-title {
@@ -305,7 +304,172 @@
 
 .gm-rest-indef {
   color: var(--color-text-muted);
-  font-size: 1rem;
+  font-size: 1.1rem;
+}
+
+.gm-view-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.gm-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.gm-view-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.gm-view-btn--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.gm-filter-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.gm-filter-checkbox input {
+  accent-color: var(--color-primary);
+}
+
+.gm-table--wide {
+  min-width: 100%;
+  width: max-content;
+  border-collapse: collapse;
+}
+
+.gm-table--wide thead {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.gm-table--wide thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--color-surface);
+  text-align: center;
+  padding: 0.5rem 0.4rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.gm-table--wide thead tr:first-child th {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text);
+  padding: 0.4rem;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.gm-table--wide thead tr:first-child th:first-child,
+.gm-table--wide thead tr:first-child th:nth-child(2) {
+  visibility: hidden;
+}
+
+.gm-table--wide thead tr:last-child th {
+  border-bottom: 2px solid var(--color-border);
+}
+
+.gm-table--wide tbody td {
+  text-align: center;
+  padding: 0.5rem 0.4rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.gm-table--wide tbody td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+  padding-right: 1rem;
+  background: var(--color-surface);
+}
+
+.gm-table--wide tbody tr:hover td:first-child {
+  background: var(--color-bg);
+}
+
+.gm-table--wide thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  background: var(--color-surface);
+}
+
+.gm-table--wide tfoot td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-surface);
+}
+
+.gm-table--wide tbody td:nth-child(2) {
+  text-align: right;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  padding-right: 1rem;
+  border-right: 2px solid var(--color-border);
+}
+
+.gm-table--wide thead tr:last-child th:first-child,
+.gm-table--wide thead tr:last-child th:nth-child(2) {
+  border-right: 2px solid var(--color-border);
+}
+
+.gm-table--wide tfoot td {
+  text-align: center;
+  padding: 0.5rem 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-top: 2px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.gm-table--wide tfoot td:first-child {
+  text-align: left;
+  padding-right: 1rem;
+}
+
+.gm-table--wide tfoot td:nth-child(2) {
+  border-right: 2px solid var(--color-border);
+}
+
+.gm-month-name {
+  font-weight: 600;
+}
+
+.gm-th-month {
+  font-size: 0.72rem;
+  white-space: nowrap;
 }
 
 .gm-rest-num {

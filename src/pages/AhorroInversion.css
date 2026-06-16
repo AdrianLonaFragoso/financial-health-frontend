@@ -1,0 +1,27 @@
+.ai-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.ai-header {
+  margin-bottom: 2rem;
+}
+
+.ai-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.ai-subtitle {
+  margin: 0.5rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+}
