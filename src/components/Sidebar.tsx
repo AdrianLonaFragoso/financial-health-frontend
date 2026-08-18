@@ -1,6 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { useTheme } from "../contexts/ThemeContext";
-import { FaChartPie, FaArrowRight, FaArrowLeft, FaPiggyBank, FaCreditCard } from "react-icons/fa";
+import { FaChartPie, FaArrowRight, FaArrowLeft, FaPiggyBank, FaCreditCard, FaPercent } from "react-icons/fa";
 import "./Sidebar.css";
 
 const links = [
@@ -9,6 +9,7 @@ const links = [
   { path: "/gastos", label: "Gastos", icon: FaArrowLeft },
   { path: "/ahorro-inversion", label: "Ahorro", icon: FaPiggyBank },
   { path: "/creditos", label: "Créditos", icon: FaCreditCard },
+  { path: "/plan", label: "Plan", icon: FaPercent },
 ];
 
 function Sidebar() {

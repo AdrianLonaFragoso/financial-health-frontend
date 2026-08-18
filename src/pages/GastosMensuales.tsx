@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   PieChart,
   Pie,
@@ -7,12 +8,12 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { FaPlus, FaTrash, FaPen, FaFileCsv, FaTable, FaChartPie } from "react-icons/fa";
+import { FaPlus, FaTrash, FaPen, FaFileCsv, FaTable, FaChartPie, FaPercent } from "react-icons/fa";
 import CsvImportModal from "../components/CsvImportModal";
 import { useMonth } from "../contexts/MonthContext";
+import { usePlan } from "../contexts/PlanContext";
 import {
   CATEGORY_META,
-  IDEAL_SPLIT,
   formatMonto,
 } from "../data/constants";
 import type { Gasto, MonthData } from "../data/constants";
@@ -76,6 +77,8 @@ function dateValueToFin(value: string): string {
 
 function GastosMensuales() {
   const { meses, selectedMonth, refreshMeses } = useMonth();
+  const { effectivePlan: plan } = usePlan();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -140,16 +143,23 @@ function GastosMensuales() {
       color: c.color,
     }));
     const totalIdeal = {
-      necesidades: totalIngresos * 0.5,
-      estiloVida: totalIngresos * 0.3,
-      ahorro: totalIngresos * 0.2,
+      necesidades: totalIngresos * (plan.necesidades / 100),
+      estiloVida: totalIngresos * (plan.estiloVida / 100),
+      ahorro: totalIngresos * (plan.ahorro / 100),
     };
     return { month, gastosParaMes, total, totalIngresos, porCategoria, pieData, totalIdeal };
-  }, [selectedMonth, meses]);
+  }, [selectedMonth, meses, plan]);
 
   const actualNeeds = porCategoria.find((c) => c.categoria === "Necesidades");
   const actualLifestyle = porCategoria.find((c) => c.categoria === "Estilo de vida");
   const actualSavings = porCategoria.find((c) => c.categoria === "Ahorro");
+  const actualDebt = porCategoria.find((c) => c.categoria === "Deuda");
+
+  const idealSplit = [
+    { name: "Necesidades", percentage: plan.necesidades, color: "#4caf50" },
+    { name: "Estilo de vida", percentage: plan.estiloVida, color: "#ff9800" },
+    { name: "Ahorro", percentage: plan.ahorro, color: "#2196f3" },
+  ];
 
   const filteredGastos = useMemo(() => {
     if (!month) return [];
@@ -409,11 +419,13 @@ function GastosMensuales() {
             </div>
 
             <div className="gm-chart-card">
-              <h2 className="gm-section-title">Meta ideal 50/30/20</h2>
+              <h2 className="gm-section-title">
+                Meta ideal {plan.necesidades}/{plan.estiloVida}/{plan.ahorro}
+              </h2>
               <ResponsiveContainer width="100%" height={320}>
                 <PieChart>
                   <Pie
-                    data={IDEAL_SPLIT}
+                    data={idealSplit}
                     dataKey="percentage"
                     nameKey="name"
                     cx="50%"
@@ -422,7 +434,7 @@ function GastosMensuales() {
                     outerRadius={130}
                     paddingAngle={3}
                   >
-                    {IDEAL_SPLIT.map((entry, i) => (
+                    {idealSplit.map((entry, i) => (
                       <Cell key={i} fill={entry.color} />
                     ))}
                   </Pie>
@@ -448,67 +460,117 @@ function GastosMensuales() {
           </section>
 
           <section className="gm-compare-section">
-            <h2 className="gm-section-title">Comparativa: Actual vs Ideal</h2>
+            <div className="gm-compare-header">
+              <h2 className="gm-section-title">Comparativa: Actual vs Ideal</h2>
+              <button className="gm-plan-btn" onClick={() => navigate("/plan")}>
+                <FaPercent />
+                Editar plan
+              </button>
+            </div>
             <div className="gm-compare-bars">
-              {[
-                {
-                  label: "Necesidades (50%)",
-                  ideal: totalIdeal.necesidades,
-                  actual: actualNeeds?.monto ?? 0,
-                  color: "#4caf50",
-                },
-                {
-                  label: "Estilo de vida (30%)",
-                  ideal: totalIdeal.estiloVida,
-                  actual: actualLifestyle?.monto ?? 0,
-                  color: "#ff9800",
-                },
-                {
-                  label: "Ahorro (20%)",
-                  ideal: totalIdeal.ahorro,
-                  actual: actualSavings?.monto ?? 0,
-                  color: "#2196f3",
-                },
-              ].map((item) => {
-                const pctActual = totalIngresos > 0 ? (item.actual / totalIngresos) * 100 : 0;
-                const pctIdeal = totalIngresos > 0 ? (item.ideal / totalIngresos) * 100 : 0;
-                const maxVal = Math.max(item.actual, item.ideal, 1);
+              {(() => {
+                const lifestyleMonto = actualLifestyle?.monto ?? 0;
+                const debtMonto = actualDebt?.monto ?? 0;
+                const hasDebts = debtMonto > 0;
                 return (
-                  <div key={item.label} className="gm-compare-row">
-                    <span className="gm-compare-label">{item.label}</span>
-                    <div className="gm-compare-bars-wrapper">
-                      <div className="gm-bar-track">
-                        <div
-                          className="gm-bar-fill gm-bar-actual"
-                          style={{
-                            width: `${(item.actual / maxVal) * 100}%`,
-                            background: item.color,
-                          }}
-                          title={`Actual: ${formatMonto(item.actual)} (${pctActual.toFixed(1)}%)`}
-                        />
-                      </div>
-                      <div className="gm-bar-track">
-                        <div
-                          className="gm-bar-fill gm-bar-ideal"
-                          style={{
-                            width: `${(item.ideal / maxVal) * 100}%`,
-                            background: item.color,
-                          }}
-                          title={`Ideal: ${formatMonto(item.ideal)} (${pctIdeal.toFixed(1)}%)`}
-                        />
-                      </div>
-                    </div>
-                    <div className="gm-compare-values">
-                      <span style={{ color: item.color }}>
-                        {formatMonto(item.actual)}
-                      </span>
-                      <span style={{ color: item.color, opacity: 0.6 }}>
-                        {formatMonto(item.ideal)}
-                      </span>
-                    </div>
-                  </div>
+                  [
+                    {
+                      label: `Necesidades (${plan.necesidades}%)`,
+                      ideal: totalIdeal.necesidades,
+                      actual: actualNeeds?.monto ?? 0,
+                      color: "#4caf50",
+                    },
+                    {
+                      label: `Estilo de vida / Deudas (${plan.estiloVida}%)`,
+                      ideal: totalIdeal.estiloVida,
+                      actual: lifestyleMonto + debtMonto,
+                      color: "#ff9800",
+                      segments: hasDebts
+                        ? [
+                            { value: lifestyleMonto, color: "#ff9800", label: "Estilo de vida" },
+                            { value: debtMonto, color: "#7a2eff", label: "Deuda" },
+                          ]
+                        : null,
+                    },
+                    {
+                      label: `Ahorro (${plan.ahorro}%)`,
+                      ideal: totalIdeal.ahorro,
+                      actual: actualSavings?.monto ?? 0,
+                      color: "#2196f3",
+                    },
+                  ] as Array<{
+                    label: string;
+                    ideal: number;
+                    actual: number;
+                    color: string;
+                    segments?: { value: number; color: string; label: string }[] | null;
+                  }>
                 );
-              })}
+              })()
+                .map((item) => {
+                  const pctActual = totalIngresos > 0 ? (item.actual / totalIngresos) * 100 : 0;
+                  const pctIdeal = totalIngresos > 0 ? (item.ideal / totalIngresos) * 100 : 0;
+                  const maxVal = Math.max(item.actual, item.ideal, 1);
+                  return (
+                    <div key={item.label} className="gm-compare-row">
+                      <span className="gm-compare-label">{item.label}</span>
+                      <div className="gm-compare-bars-wrapper">
+                        <div
+                          className={`gm-bar-track ${item.segments ? "gm-bar-track--stacked" : ""}`}
+                        >
+                          {item.segments ? (
+                            item.segments.map((seg) => (
+                              <div
+                                key={seg.label}
+                                className="gm-bar-fill gm-bar-actual"
+                                style={{
+                                  width: `${(seg.value / maxVal) * 100}%`,
+                                  background: seg.color,
+                                }}
+                                title={`${seg.label}: ${formatMonto(seg.value)}`}
+                              />
+                            ))
+                          ) : (
+                            <div
+                              className="gm-bar-fill gm-bar-actual"
+                              style={{
+                                width: `${(item.actual / maxVal) * 100}%`,
+                                background: item.color,
+                              }}
+                              title={`Actual: ${formatMonto(item.actual)} (${pctActual.toFixed(1)}%)`}
+                            />
+                          )}
+                        </div>
+                        <div className="gm-bar-track">
+                          <div
+                            className="gm-bar-fill gm-bar-ideal"
+                            style={{
+                              width: `${(item.ideal / maxVal) * 100}%`,
+                              background: item.color,
+                            }}
+                            title={`Ideal: ${formatMonto(item.ideal)} (${pctIdeal.toFixed(1)}%)`}
+                          />
+                        </div>
+                      </div>
+                      <div className="gm-compare-values">
+                        {item.segments ? (
+                          item.segments.map((seg) => (
+                            <span key={seg.label} style={{ color: seg.color }}>
+                              {formatMonto(seg.value)}
+                            </span>
+                          ))
+                        ) : (
+                          <span style={{ color: item.color }}>
+                            {formatMonto(item.actual)}
+                          </span>
+                        )}
+                        <span style={{ color: item.color, opacity: 0.6 }}>
+                          {formatMonto(item.ideal)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </section>
 

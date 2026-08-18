@@ -17,6 +17,9 @@ export interface MonthData {
   label: string;
   gastos: Gasto[];
   ingresos: Ingreso[];
+  necesidades?: number | null;
+  estiloVida?: number | null;
+  ahorro?: number | null;
 }
 
 export const MONTHS_DATA: MonthData[] = [
@@ -135,11 +138,11 @@ export const CATEGORY_META: Record<string, { label: string; color: string }> = {
   Deuda: { label: "Deuda", color: "#7a2eff" },
 };
 
-export const IDEAL_SPLIT = [
-  { name: "Necesidades", percentage: 50, color: "#4caf50" },
-  { name: "Estilo de vida", percentage: 30, color: "#ff9800" },
-  { name: "Ahorro", percentage: 20, color: "#2196f3" },
-];
+export const DEFAULT_PLAN = {
+  necesidades: 50,
+  estiloVida: 30,
+  ahorro: 20,
+};
 
 export const INGRESO_COLORS: Record<string, string> = {
   Sueldo: "#f59e0b",
