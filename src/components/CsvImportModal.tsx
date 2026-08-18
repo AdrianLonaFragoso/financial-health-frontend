@@ -48,7 +48,7 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
 
 function CsvImportModal({ type, onClose, onSuccess }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<{ headers: string[]; rows: PreviewRow; monthNames: string[]; metaKeys?: string[] } | null>(null);
+  const [preview, setPreview] = useState<{ headers: string[]; rows: PreviewRow[]; monthNames: string[]; metaKeys?: string[] } | null>(null);
   const [rawRows, setRawRows] = useState<Record<string, string | number>[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<string | null>(null);

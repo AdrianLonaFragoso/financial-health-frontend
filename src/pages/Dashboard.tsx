@@ -31,7 +31,7 @@ interface Resumen {
 }
 
 function Dashboard() {
-  const { meses, selectedMonth, setSelectedMonth, refreshMeses } = useMonth();
+  const { meses, selectedMonth, refreshMeses } = useMonth();
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

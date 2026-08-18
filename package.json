@@ -7,6 +7,8 @@
     "dev": "vite",
     "dev:prod": "VITE_API_URL=https://financial-health-back.vercel.app/api vite",
     "build": "tsc -b && vite build",
+    "typecheck": "tsc -b --noEmit",
+    "typecheck:watch": "tsc -b --noEmit --watch",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -17,7 +17,6 @@ import CsvImportModal from "../components/CsvImportModal";
 import { useMonth } from "../contexts/MonthContext";
 import {
   INGRESO_COLORS,
-  MESES,
   formatMonto,
 } from "../data/constants";
 import type { Ingreso, MonthData } from "../data/constants";
@@ -29,9 +28,9 @@ function ingresoId(i: Ingreso, idx: number) {
 }
 
 function IngresosMensuales() {
-  const { meses, selectedMonth, setSelectedMonth, loading: mesesLoading, refreshMeses } = useMonth();
+  const { meses, selectedMonth, refreshMeses } = useMonth();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [nuevoConcepto, setNuevoConcepto] = useState("");

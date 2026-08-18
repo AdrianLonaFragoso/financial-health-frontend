@@ -1,9 +1,6 @@
-import { useMonth } from "../contexts/MonthContext";
 import "./AhorroInversion.css";
 
 function AhorroInversion() {
-  const { meses, selectedMonth, setSelectedMonth } = useMonth();
-
   return (
     <div className="ai-container">
       <header className="ai-header">

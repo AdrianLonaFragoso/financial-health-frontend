@@ -13,7 +13,6 @@ import { useMonth } from "../contexts/MonthContext";
 import {
   CATEGORY_META,
   IDEAL_SPLIT,
-  MESES,
   formatMonto,
 } from "../data/constants";
 import type { Gasto, MonthData } from "../data/constants";
@@ -76,9 +75,9 @@ function dateValueToFin(value: string): string {
 }
 
 function GastosMensuales() {
-  const { meses, selectedMonth, setSelectedMonth, loading: mesesLoading, refreshMeses } = useMonth();
+  const { meses, selectedMonth, refreshMeses } = useMonth();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -87,7 +86,6 @@ function GastosMensuales() {
   const [nuevoConcepto, setNuevoConcepto] = useState("");
   const [nuevoMonto, setNuevoMonto] = useState("");
   const [nuevaCategoria, setNuevaCategoria] = useState("Necesidades");
-  const [nuevoFin, setNuevoFin] = useState("indefinido");
   const [nuevoFinIndefinido, setNuevoFinIndefinido] = useState(true);
   const [nuevoFinDate, setNuevoFinDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -96,7 +94,6 @@ function GastosMensuales() {
   const [editConcepto, setEditConcepto] = useState("");
   const [editMonto, setEditMonto] = useState("");
   const [editCategoria, setEditCategoria] = useState("");
-  const [editFin, setEditFin] = useState("");
   const [editFinIndefinido, setEditFinIndefinido] = useState(true);
   const [editFinDate, setEditFinDate] = useState("");
 
@@ -266,7 +263,6 @@ function GastosMensuales() {
     setEditConcepto(g.concepto);
     setEditMonto(String(g.monto));
     setEditCategoria(g.categoria);
-    setEditFin(g.fin);
     setEditFinIndefinido(g.fin === "indefinido");
     setEditFinDate(finToDateValue(g.fin));
   }
@@ -286,7 +282,6 @@ function GastosMensuales() {
       setNuevoConcepto("");
       setNuevoMonto("");
       setNuevaCategoria("Necesidades");
-      setNuevoFin("indefinido");
       setNuevoFinIndefinido(true);
       setNuevoFinDate("");
       setShowModal(false);
