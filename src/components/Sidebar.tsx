@@ -1,12 +1,14 @@
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "../contexts/ThemeContext";
-import { FaChartPie, FaArrowRight, FaArrowLeft, FaPiggyBank, FaCreditCard, FaPercent } from "react-icons/fa";
+import { useSidebar } from "../contexts/SidebarContext";
+import { FaChartPie, FaArrowRight, FaArrowLeft, FaPiggyBank, FaCreditCard, FaPercent, FaBalanceScale, FaChevronLeft, FaTimes } from "react-icons/fa";
 import "./Sidebar.css";
 
 const links = [
   { path: "/", label: "Dashboard", icon: FaChartPie },
   { path: "/ingresos", label: "Ingresos", icon: FaArrowRight },
   { path: "/gastos", label: "Gastos", icon: FaArrowLeft },
+  { path: "/comparativa", label: "Comparativa", icon: FaBalanceScale },
   { path: "/ahorro-inversion", label: "Ahorro", icon: FaPiggyBank },
   { path: "/creditos", label: "Créditos", icon: FaCreditCard },
   { path: "/plan", label: "Plan", icon: FaPercent },
@@ -15,24 +17,41 @@ const links = [
 function Sidebar() {
   const location = useLocation();
   const { theme, toggle } = useTheme();
+  const { isOpen, isMobile, toggle: toggleSidebar, close } = useSidebar();
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-logo">
-        <img src="/msc-logo-mobile.svg" alt="MSC" className="sidebar-logo-img" />
+    <aside
+      className={`sidebar ${isOpen ? "sidebar--open" : "sidebar--collapsed"} ${isMobile ? "sidebar--mobile" : "sidebar--desktop"}`}
+      aria-hidden={!isOpen}
+    >
+      <div className="sidebar-header">
+        <div className="sidebar-logo">
+          <img src="/msc-logo-mobile.svg" alt="MSC" className="sidebar-logo-img" />
+        </div>
+        <button
+          className="sidebar-collapse-btn"
+          onClick={toggleSidebar}
+          aria-label={isOpen ? "Ocultar barra lateral" : "Mostrar barra lateral"}
+          title={isOpen ? "Ocultar" : "Mostrar"}
+        >
+          {isMobile ? <FaTimes /> : <FaChevronLeft />}
+        </button>
       </div>
       <nav className="sidebar-nav">
         {links.map((link) => {
           const Icon = link.icon;
           return (
-            <a
+            <Link
               key={link.path}
-              href={link.path}
+              to={link.path}
+              onClick={() => {
+                if (isMobile) close();
+              }}
               className={`sidebar-link ${location.pathname === link.path ? "sidebar-link--active" : ""}`}
             >
               <Icon className="sidebar-link-icon" />
               {link.label}
-            </a>
+            </Link>
           );
         })}
       </nav>
