@@ -7,7 +7,7 @@ export function obtenerGastos(monthId: string) {
 
 export function crearGasto(
   monthId: string,
-  data: { concepto: string; monto: number; categoria: string; fin: string }
+  data: { concepto: string; monto: number; categoria: string; fin: string; metodoPago?: "efectivo" | "credito"; creditoId?: string | null }
 ) {
   return api.post<Gasto>(`/meses/${monthId}/gastos`, data);
 }
@@ -15,7 +15,7 @@ export function crearGasto(
 export function actualizarGasto(
   monthId: string,
   gastoId: string,
-  data: { concepto?: string; monto?: number; categoria?: string; fin?: string }
+  data: { concepto?: string; monto?: number; categoria?: string; fin?: string; metodoPago?: "efectivo" | "credito"; creditoId?: string | null }
 ) {
   return api.put<Gasto>(`/meses/${monthId}/gastos/${gastoId}`, data);
 }

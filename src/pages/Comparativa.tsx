@@ -9,9 +9,11 @@ import {
   FaArrowUp,
   FaArrowDown,
 } from "react-icons/fa";
+import { useEffect } from "react";
 import { useMonth } from "../contexts/MonthContext";
 import { CATEGORY_META, INGRESO_COLORS, formatMonto } from "../data/constants";
 import type { Gasto, Ingreso } from "../data/constants";
+import { obtenerCreditos, type CreditoData } from "../services/creditosService";
 import "./Comparativa.css";
 
 type CategoriaFiltro = "todas" | string;
@@ -33,6 +35,13 @@ function Comparativa() {
   const [searchEgresos, setSearchEgresos] = useState("");
   const [categoriaFiltro, setCategoriaFiltro] = useState<CategoriaFiltro>("todas");
   const [sortEgresos, setSortEgresos] = useState<"montoDesc" | "montoAsc" | "concepto">("montoDesc");
+  const [pagoFiltro, setPagoFiltro] = useState<"todos" | "efectivo" | string>("todos");
+  const [creditos, setCreditos] = useState<CreditoData[]>([]);
+  useEffect(() => { obtenerCreditos().then((r) => setCreditos(r.data)).catch(() => {}); }, []);
+  function creditoNombre(id?: string | null) {
+    if (!id) return "Efectivo";
+    return creditos.find((c) => c.id === id)?.nombre ?? "Crédito";
+  }
 
   const month = useMemo(() => {
     if (!selectedMonth || meses.length === 0) return null;
@@ -91,11 +100,16 @@ function Comparativa() {
         (g) =>
           g.concepto.toLowerCase().includes(qEgr) ||
           g.categoria.toLowerCase().includes(qEgr) ||
-          String(g.monto).includes(qEgr)
+          String(g.monto).includes(qEgr) ||
+          creditoNombre(g.creditoId).toLowerCase().includes(qEgr)
       );
     }
     if (categoriaFiltro !== "todas") {
       egresosFiltrados = egresosFiltrados.filter((g) => g.categoria === categoriaFiltro);
+    }
+    if (pagoFiltro !== "todos") {
+      if (pagoFiltro === "efectivo") egresosFiltrados = egresosFiltrados.filter((g) => (g.metodoPago ?? "efectivo") === "efectivo");
+      else egresosFiltrados = egresosFiltrados.filter((g) => g.creditoId === pagoFiltro);
     }
 
     const egresosOrdenados = [...egresosFiltrados].sort((a, b) => {
@@ -138,7 +152,7 @@ function Comparativa() {
       egresosOrdenados,
       porCategoria,
     };
-  }, [month, searchIngresos, searchEgresos, categoriaFiltro, sortEgresos, excluidos]);
+  }, [month, searchIngresos, searchEgresos, categoriaFiltro, sortEgresos, excluidos, pagoFiltro, creditos]);
 
   function toggleExcluido(id: string) {
     setExcluidos((prev) => {
@@ -466,6 +480,13 @@ function Comparativa() {
                 <option value="montoAsc">Menor monto primero</option>
                 <option value="concepto">A-Z</option>
               </select>
+              <select className="cmp-select" value={pagoFiltro} onChange={(e) => setPagoFiltro(e.target.value)}>
+                <option value="todos">Todos los pagos</option>
+                <option value="efectivo">Efectivo</option>
+                {creditos.map((c) => (
+                  <option key={c.id} value={c.id!}>{c.nombre}</option>
+                ))}
+              </select>
             </div>
             <p className="cmp-hint">
               <FaEyeSlash /> Desmarca conceptos para simular “qué pasa si lo quito” · Liberado:{" "}
@@ -483,6 +504,7 @@ function Comparativa() {
                   <th>Concepto</th>
                   <th style={{ textAlign: "right" }}>Monto</th>
                   <th>Categoría</th>
+                  <th>Pago</th>
                   <th style={{ textAlign: "center" }}>% Ing</th>
                 </tr>
               </thead>
@@ -518,6 +540,15 @@ function Comparativa() {
                           }}
                         >
                           {label}
+                        </span>
+                      </td>
+                      <td data-label="Pago">
+                        <span className="cmp-badge" style={{
+                          background: (g.metodoPago ?? "efectivo") === "credito" ? "#0057B822" : "#95959522",
+                          color: (g.metodoPago ?? "efectivo") === "credito" ? "#0057B8" : "#959595",
+                          borderColor: (g.metodoPago ?? "efectivo") === "credito" ? "#0057B8" : "#959595",
+                        }}>
+                          {(g.metodoPago ?? "efectivo") === "credito" ? creditoNombre(g.creditoId) : "Efectivo"}
                         </span>
                       </td>
                       <td style={{ textAlign: "center" }} className="cmp-pct" data-label="% Ing">

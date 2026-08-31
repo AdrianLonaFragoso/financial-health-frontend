@@ -4,6 +4,9 @@ export interface Gasto {
   monto: number;
   categoria: string;
   fin: string;
+  metodoPago?: "efectivo" | "credito";
+  creditoId?: string | null;
+  credito?: { id: string; nombre: string; tipo: string } | null;
 }
 
 export interface Ingreso {

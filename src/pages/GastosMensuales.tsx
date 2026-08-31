@@ -8,7 +8,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { FaPlus, FaTrash, FaPen, FaFileCsv, FaTable, FaChartPie, FaPercent } from "react-icons/fa";
+import { FaPlus, FaTrash, FaPen, FaFileCsv, FaTable, FaChartPie, FaPercent, FaCreditCard, FaMoneyBill } from "react-icons/fa";
 import CsvImportModal from "../components/CsvImportModal";
 import { useMonth } from "../contexts/MonthContext";
 import { usePlan } from "../contexts/PlanContext";
@@ -18,6 +18,7 @@ import {
 } from "../data/constants";
 import type { Gasto, MonthData } from "../data/constants";
 import { crearGasto, actualizarGasto, eliminarGasto } from "../services/gastosService";
+import { obtenerCreditos, recalcularTodosCreditos, type CreditoData } from "../services/creditosService";
 
 import "./GastosMensuales.css";
 
@@ -91,7 +92,12 @@ function GastosMensuales() {
   const [nuevaCategoria, setNuevaCategoria] = useState("Necesidades");
   const [nuevoFinIndefinido, setNuevoFinIndefinido] = useState(true);
   const [nuevoFinDate, setNuevoFinDate] = useState("");
+  const [nuevoMetodoPago, setNuevoMetodoPago] = useState<"efectivo" | "credito">("efectivo");
+  const [nuevoCreditoId, setNuevoCreditoId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [errorForm, setErrorForm] = useState<string | null>(null);
+  const [creditos, setCreditos] = useState<CreditoData[]>([]);
+  const [pagoFiltro, setPagoFiltro] = useState<"todos" | "efectivo" | string>("todos");
 
   const [editTarget, setEditTarget] = useState<Gasto | null>(null);
   const [editConcepto, setEditConcepto] = useState("");
@@ -99,6 +105,8 @@ function GastosMensuales() {
   const [editCategoria, setEditCategoria] = useState("");
   const [editFinIndefinido, setEditFinIndefinido] = useState(true);
   const [editFinDate, setEditFinDate] = useState("");
+  const [editMetodoPago, setEditMetodoPago] = useState<"efectivo" | "credito">("efectivo");
+  const [editCreditoId, setEditCreditoId] = useState("");
 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
@@ -109,6 +117,15 @@ function GastosMensuales() {
   useEffect(() => {
     if (meses.length > 0) setLoading(false);
   }, [meses]);
+
+  useEffect(() => {
+    obtenerCreditos().then((r) => setCreditos(r.data)).catch(() => {});
+  }, []);
+
+  function creditoNombre(id?: string | null) {
+    if (!id) return "Efectivo";
+    return creditos.find((c) => c.id === id)?.nombre ?? "Crédito";
+  }
 
   const { month, gastosParaMes, total, totalIngresos, porCategoria, pieData, totalIdeal } = useMemo(() => {
     if (!selectedMonth || meses.length === 0) {
@@ -171,8 +188,13 @@ function GastosMensuales() {
           g.concepto.toLowerCase().includes(q) ||
           g.categoria.toLowerCase().includes(q) ||
           g.fin.toLowerCase().includes(q) ||
-          g.monto.toString().includes(q)
+          g.monto.toString().includes(q) ||
+          creditoNombre(g.creditoId).toLowerCase().includes(q)
       );
+    }
+    if (pagoFiltro !== "todos") {
+      if (pagoFiltro === "efectivo") list = list.filter((g) => (g.metodoPago ?? "efectivo") === "efectivo");
+      else list = list.filter((g) => g.creditoId === pagoFiltro);
     }
     if (sortKey) {
       list = [...list].sort((a, b) => {
@@ -195,7 +217,7 @@ function GastosMensuales() {
       });
     }
     return list;
-  }, [gastosParaMes, search, sortKey, sortDir]);
+  }, [gastosParaMes, search, sortKey, sortDir, pagoFiltro, creditos]);
 
   const pagosData = useMemo(() => {
     if (meses.length === 0) return { months: [], rows: [], totals: [] };
@@ -275,11 +297,19 @@ function GastosMensuales() {
     setEditCategoria(g.categoria);
     setEditFinIndefinido(g.fin === "indefinido");
     setEditFinDate(finToDateValue(g.fin));
+    setEditMetodoPago((g.metodoPago ?? "efectivo") as "efectivo" | "credito");
+    setEditCreditoId(g.creditoId ?? "");
+    setErrorForm(null);
   }
 
   async function handleAgregar(e: React.FormEvent) {
     e.preventDefault();
     if (!nuevoConcepto.trim() || !nuevoMonto.trim()) return;
+    if (nuevoMetodoPago === "credito" && !nuevoCreditoId) {
+      setErrorForm("Selecciona la tarjeta/crédito");
+      return;
+    }
+    setErrorForm(null);
     setSubmitting(true);
     try {
       const finValue = nuevoFinIndefinido ? "indefinido" : dateValueToFin(nuevoFinDate);
@@ -288,15 +318,24 @@ function GastosMensuales() {
         monto: parseFloat(nuevoMonto),
         categoria: nuevaCategoria,
         fin: finValue,
+        metodoPago: nuevoMetodoPago,
+        creditoId: nuevoMetodoPago === "credito" ? nuevoCreditoId : null,
       });
       setNuevoConcepto("");
       setNuevoMonto("");
       setNuevaCategoria("Necesidades");
       setNuevoFinIndefinido(true);
       setNuevoFinDate("");
+      setNuevoMetodoPago("efectivo");
+      setNuevoCreditoId("");
       setShowModal(false);
       refreshMeses();
-    } catch {
+      recalcularTodosCreditos().catch(() => {});
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // @ts-ignore axios
+      const apiMsg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      setErrorForm(apiMsg ?? msg ?? "Error al guardar");
     } finally {
       setSubmitting(false);
     }
@@ -305,8 +344,13 @@ function GastosMensuales() {
   async function handleEditar(e: React.FormEvent) {
     e.preventDefault();
     if (!editTarget || !editConcepto.trim() || !editMonto.trim()) return;
+    if (editMetodoPago === "credito" && !editCreditoId) {
+      setErrorForm("Selecciona la tarjeta/crédito");
+      return;
+    }
     const gastoId = editTarget.id;
     if (!gastoId) return;
+    setErrorForm(null);
     setSubmitting(true);
     try {
       const finValue = editFinIndefinido ? "indefinido" : dateValueToFin(editFinDate);
@@ -315,10 +359,15 @@ function GastosMensuales() {
         monto: parseFloat(editMonto),
         categoria: editCategoria,
         fin: finValue,
+        metodoPago: editMetodoPago,
+        creditoId: editMetodoPago === "credito" ? editCreditoId : null,
       });
       setEditTarget(null);
       refreshMeses();
-    } catch {
+      recalcularTodosCreditos().catch(() => {});
+    } catch (err: unknown) {
+      const apiMsg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      setErrorForm(apiMsg ?? (err instanceof Error ? err.message : String(err)));
     } finally {
       setSubmitting(false);
     }
@@ -330,6 +379,7 @@ function GastosMensuales() {
       await eliminarGasto(selectedMonth, deleteTarget);
       setDeleteTarget(null);
       refreshMeses();
+      recalcularTodosCreditos().catch(() => {});
     } catch {
     }
   }
@@ -583,7 +633,7 @@ function GastosMensuales() {
           <section className="gm-table-section">
             <div className="gm-table-header">
               <h2 className="gm-section-title">Detalle de gastos</h2>
-              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
                 <input
                   className="gm-search"
                   type="text"
@@ -591,6 +641,13 @@ function GastosMensuales() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
+                <select className="gm-select" value={pagoFiltro} onChange={(e) => setPagoFiltro(e.target.value)} style={{ minWidth: 150 }}>
+                  <option value="todos">Todos los pagos</option>
+                  <option value="efectivo">Efectivo</option>
+                  {creditos.map((c) => (
+                    <option key={c.id} value={c.id!}>{c.nombre}</option>
+                  ))}
+                </select>
                 <button className="gm-add-btn" onClick={() => setShowModal(true)}>
                   <FaPlus />
                   Agregar gasto
@@ -620,6 +677,7 @@ function GastosMensuales() {
                     <th className="gm-th-sort" onClick={() => toggleSort("restantes")}>
                       P/Restantes{sortArrow("restantes")}
                     </th>
+                    <th>Pago</th>
                     <th className="gm-th-acciones">Acciones</th>
                   </tr>
                 </thead>
@@ -649,6 +707,15 @@ function GastosMensuales() {
                         </td>
                         <td data-label="P/Restantes">
                           {renderRestantes(g.fin)}
+                        </td>
+                        <td data-label="Pago">
+                          <span className="gm-badge" style={{
+                            background: (g.metodoPago ?? "efectivo") === "credito" ? "#0057B822" : "#95959522",
+                            color: (g.metodoPago ?? "efectivo") === "credito" ? "#0057B8" : "#959595",
+                            borderColor: (g.metodoPago ?? "efectivo") === "credito" ? "#0057B8" : "#959595",
+                          }}>
+                            {(g.metodoPago ?? "efectivo") === "credito" ? <><FaCreditCard style={{ marginRight: 4 }} />{creditoNombre(g.creditoId)}</> : <><FaMoneyBill style={{ marginRight: 4 }} />Efectivo</>}
+                          </span>
                         </td>
                         <td data-label="Acciones" className="gm-acciones-cell">
                           <button
@@ -774,6 +841,24 @@ function GastosMensuales() {
                 </select>
               </div>
               <div className="gm-modal-field">
+                <label htmlFor="gm-metodo">Método de pago</label>
+                <select id="gm-metodo" className="gm-select" value={nuevoMetodoPago} onChange={(e) => setNuevoMetodoPago(e.target.value as "efectivo" | "credito")}>
+                  <option value="efectivo">Efectivo</option>
+                  <option value="credito">Tarjeta / Crédito</option>
+                </select>
+              </div>
+              {nuevoMetodoPago === "credito" && (
+                <div className="gm-modal-field">
+                  <label htmlFor="gm-credito">Tarjeta / Crédito</label>
+                  <select id="gm-credito" className="gm-select" value={nuevoCreditoId} onChange={(e) => setNuevoCreditoId(e.target.value)}>
+                    <option value="">Selecciona...</option>
+                    {creditos.map((c) => (
+                      <option key={c.id} value={c.id!}>{c.nombre} — {c.tipo}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="gm-modal-field">
                 <label htmlFor="gm-fin">Vencimiento</label>
                 <div className="gm-fin-row">
                   <label className="gm-fin-indef-label">
@@ -796,6 +881,7 @@ function GastosMensuales() {
                   />
                 </div>
               </div>
+              {errorForm && <p style={{ color: "#ef4444", fontSize: "0.82rem", margin: "0 0 0.5rem" }}>{errorForm}</p>}
               <div className="gm-modal-actions">
                 <button
                   type="button"
@@ -859,6 +945,24 @@ function GastosMensuales() {
                 </select>
               </div>
               <div className="gm-modal-field">
+                <label htmlFor="gm-edit-metodo">Método de pago</label>
+                <select id="gm-edit-metodo" className="gm-select" value={editMetodoPago} onChange={(e) => setEditMetodoPago(e.target.value as "efectivo" | "credito")}>
+                  <option value="efectivo">Efectivo</option>
+                  <option value="credito">Tarjeta / Crédito</option>
+                </select>
+              </div>
+              {editMetodoPago === "credito" && (
+                <div className="gm-modal-field">
+                  <label htmlFor="gm-edit-credito">Tarjeta / Crédito</label>
+                  <select id="gm-edit-credito" className="gm-select" value={editCreditoId} onChange={(e) => setEditCreditoId(e.target.value)}>
+                    <option value="">Selecciona...</option>
+                    {creditos.map((c) => (
+                      <option key={c.id} value={c.id!}>{c.nombre} — {c.tipo}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="gm-modal-field">
                 <label htmlFor="gm-edit-fin">Vencimiento</label>
                 <div className="gm-fin-row">
                   <label className="gm-fin-indef-label">
@@ -881,6 +985,7 @@ function GastosMensuales() {
                   />
                 </div>
               </div>
+              {errorForm && <p style={{ color: "#ef4444", fontSize: "0.82rem", margin: "0 0 0.5rem" }}>{errorForm}</p>}
               <div className="gm-modal-actions">
                 <button
                   type="button"

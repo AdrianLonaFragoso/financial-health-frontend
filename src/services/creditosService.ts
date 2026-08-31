@@ -30,3 +30,11 @@ export function actualizarCredito(id: string, data: Partial<Omit<CreditoData, "i
 export function eliminarCredito(id: string) {
   return api.delete(`/creditos/${id}`);
 }
+
+export function recalcularCredito(id: string) {
+  return api.post<CreditoData>(`/creditos/${id}/recalcular`);
+}
+
+export function recalcularTodosCreditos() {
+  return api.post<{ updated: number; creditos: CreditoData[] }>("/creditos/recalcular-todos");
+}
