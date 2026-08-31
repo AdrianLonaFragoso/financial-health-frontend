@@ -27,6 +27,33 @@
   border-color: var(--color-primary);
 }
 
+.global-month-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.global-month-export-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.06);
+}
+
+.global-month-export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .global-month-anticipate {
   position: relative;
 }

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useMonth } from "../contexts/MonthContext";
 import { crearMesesBulk, previewBulk } from "../services/mesesService";
-import { FaPlus, FaLayerGroup, FaTimes, FaCheck } from "react-icons/fa";
+import { FaPlus, FaLayerGroup, FaTimes, FaCheck, FaFileAlt } from "react-icons/fa";
+import { downloadGastosMd } from "../utils/exportGastosMd";
 import "./GlobalMonthSelector.css";
 
 export default function GlobalMonthSelector() {
@@ -19,6 +20,8 @@ export default function GlobalMonthSelector() {
       setSelectedToCreate(new Set());
     }
   }, [showPopover, meses.length]);
+
+  const selectedMonthData = meses.find((m) => m.id === selectedMonth) ?? null;
 
   if (meses.length === 0) return null;
 
@@ -88,6 +91,14 @@ export default function GlobalMonthSelector() {
           </option>
         ))}
       </select>
+      <button
+        className="global-month-export-btn"
+        onClick={() => selectedMonthData && downloadGastosMd(selectedMonthData)}
+        disabled={!selectedMonthData}
+        title={selectedMonthData ? `Exportar ${selectedMonthData.label} como gastos-${selectedMonthData.label.toLowerCase().replace(/\s+/g,'-')}.md` : "Selecciona un mes"}
+      >
+        <FaFileAlt /> Exportar .md
+      </button>
       <div className="global-month-anticipate">
         <button
           className="global-month-anticipate-btn"
