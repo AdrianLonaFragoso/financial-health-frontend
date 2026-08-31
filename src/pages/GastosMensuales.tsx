@@ -343,7 +343,7 @@ function GastosMensuales() {
       <header className="gm-header">
         <h1 className="gm-title">Gastos Mensuales</h1>
         <p className="gm-subtitle">
-          {viewMode === "normal" ? `Total: ${formatMonto(total)}` : "Vista general de pagos"}
+          {viewMode === "normal" ? "Distribución de gastos del mes seleccionado" : "Vista general de pagos"}
         </p>
         <div className="gm-view-toggle">
           <button
@@ -363,6 +363,12 @@ function GastosMensuales() {
 
       {viewMode === "normal" ? (
         <>
+          {month && (
+            <section className="gm-grand-total">
+              <span className="gm-grand-total-label">Gran total · {month.label}</span>
+              <span className="gm-grand-total-value">{formatMonto(total)}</span>
+            </section>
+          )}
           <section className="gm-summary-cards">
             {porCategoria.map((cat) => (
               <div
