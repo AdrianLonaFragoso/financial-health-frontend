@@ -24,8 +24,9 @@ export function MonthProvider({ children }: { children: ReactNode }) {
       setMeses(res.data);
       setSelectedMonth((prev) => {
         if (prev && res.data.some((m) => m.id === prev)) return prev;
-        const now = new Date();
-        const currentLabel = `${MESES[now.getMonth()]} ${now.getFullYear()}`;
+        // Usar zona America/Mexico_City para coincidir con backend (corte día 1 00:00 MX)
+        const mxNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" }));
+        const currentLabel = `${MESES[mxNow.getMonth()]} ${mxNow.getFullYear()}`;
         const current = res.data.find((m) => m.label === currentLabel);
         return current?.id ?? res.data[0]?.id ?? "";
       });
