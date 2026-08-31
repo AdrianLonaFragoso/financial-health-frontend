@@ -469,6 +469,10 @@
   cursor: not-allowed;
 }
 
+.db-modal--wide {
+  max-width: 520px;
+}
+
 .db-modal--confirm {
   max-width: 380px;
 }

@@ -11,7 +11,7 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { FaPlus, FaTrash } from "react-icons/fa";
+import { FaTrash, FaLayerGroup } from "react-icons/fa";
 import { useMonth } from "../contexts/MonthContext";
 import {
   CATEGORY_META,
@@ -19,7 +19,7 @@ import {
   formatMonto,
 } from "../data/constants";
 import type { MonthData } from "../data/constants";
-import { crearMes, eliminarMes, obtenerResumen } from "../services/mesesService";
+import { crearMes, crearMesesBulk, previewBulk, eliminarMes, obtenerResumen } from "../services/mesesService";
 
 import "./Dashboard.css";
 
@@ -31,7 +31,7 @@ interface Resumen {
 }
 
 function Dashboard() {
-  const { meses, selectedMonth, refreshMeses } = useMonth();
+  const { meses, selectedMonth, refreshMeses, setSelectedMonth, missingMonths, nextMonths } = useMonth();
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +40,9 @@ function Dashboard() {
   const [nuevoMes, setNuevoMes] = useState(new Date().getMonth() + 1);
   const [nuevoAnio, setNuevoAnio] = useState(new Date().getFullYear());
   const [creando, setCreando] = useState(false);
+  const [anticiparSel, setAnticiparSel] = useState<Set<string>>(new Set());
+  const [previews, setPreviews] = useState<{ next: { year: number; month: number; label: string; exists: boolean; ingresos: number; gastos: number; fijos: number; vigentes: number; source: string | null }[]; missing: { year: number; month: number; label: string }[] } | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
@@ -102,19 +105,62 @@ function Dashboard() {
     cargarResumen();
   }
 
+  useEffect(() => {
+    if (showCreateModal) {
+      setLoadingPreview(true);
+      previewBulk(3).then((r) => setPreviews(r.data)).catch(() => setPreviews(null)).finally(() => setLoadingPreview(false));
+      setAnticiparSel(new Set());
+    }
+  }, [showCreateModal]);
+
+  function toggleAnticipar(key: string) {
+    setAnticiparSel((prev) => {
+      const n = new Set(prev);
+      if (n.has(key)) n.delete(key);
+      else n.add(key);
+      return n;
+    });
+  }
+
+  async function handleAnticiparBulk() {
+    const months: { year: number; month: number }[] = [];
+    for (const k of anticiparSel) {
+      const [y, m] = k.split("-").map(Number);
+      months.push({ year: y, month: m });
+    }
+    if (months.length === 0) return;
+    setCreando(true);
+    try {
+      const res = await crearMesesBulk(months);
+      await refreshAll();
+      if (res.data.created.length > 0) {
+        const last = res.data.created[res.data.created.length - 1];
+        setSelectedMonth(last.id);
+      }
+      setAnticiparSel(new Set());
+      if (res.data.skipped.length === 0) setShowCreateModal(false);
+    } catch {
+      // 409 handled as skipped
+    } finally {
+      setCreando(false);
+    }
+  }
+
   async function handleCrearMes(e: React.FormEvent) {
     e.preventDefault();
     setCreando(true);
     try {
-      await crearMes({
+      const res = await crearMes({
         label: `${MESES[nuevoMes - 1]} ${nuevoAnio}`,
         year: nuevoAnio,
         month: nuevoMes,
         autoPopulate: true,
       });
       setShowCreateModal(false);
-      refreshAll();
+      await refreshAll();
+      setSelectedMonth(res.data.id);
     } catch {
+      // 409 ya existe
     } finally {
       setCreando(false);
     }
@@ -317,8 +363,8 @@ function Dashboard() {
             <div className="db-table-header">
               <h2 className="db-section-title">Vista global por mes</h2>
               <button className="db-add-btn" onClick={() => setShowCreateModal(true)}>
-                <FaPlus />
-                Agregar mes
+                <FaLayerGroup />
+                Anticipar meses
               </button>
             </div>
             <div className="db-table-wrapper">
@@ -373,58 +419,92 @@ function Dashboard() {
 
       {showCreateModal && (
         <div className="db-overlay" onClick={() => setShowCreateModal(false)}>
-          <div className="db-modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="db-modal-title">Agregar nuevo mes</h2>
-            <form onSubmit={handleCrearMes}>
-              <div className="db-modal-row">
-                <div className="db-modal-field">
-                  <label htmlFor="db-mes">Mes</label>
-                  <select
-                    id="db-mes"
-                    className="db-select"
-                    value={nuevoMes}
-                    onChange={(e) => setNuevoMes(Number(e.target.value))}
-                  >
-                    {MESES.map((nombre, i) => (
-                      <option key={i + 1} value={i + 1}>{nombre}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="db-modal-field">
-                  <label htmlFor="db-anio">Año</label>
-                  <select
-                    id="db-anio"
-                    className="db-select"
-                    value={nuevoAnio}
-                    onChange={(e) => setNuevoAnio(Number(e.target.value))}
-                  >
-                    {Array.from({ length: 10 }, (_, i) => {
-                      const anio = new Date().getFullYear() - 5 + i;
-                      return <option key={anio} value={anio}>{anio}</option>;
+          <div className="db-modal db-modal--wide" onClick={(e) => e.stopPropagation()}>
+            <h2 className="db-modal-title">Anticipar meses</h2>
+            <p style={{ color: "var(--color-text-muted)", fontSize: "0.85rem", margin: "0 0 1rem" }}>
+              Plan trimestral · Crea meses faltantes o anticipa los próximos 3. Se copiarán ingresos completos y gastos fijos + vigentes. Al crear se autoselecciona el último; al re-entrar se vuelve al mes actual.
+            </p>
+
+            {loadingPreview ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.6rem 0", color: "var(--color-text-muted)" }}>
+                <div className="loading-spinner" style={{ width: 20, height: 20 }} /> Cargando preview...
+              </div>
+            ) : (
+              <>
+                {missingMonths.length > 0 && (
+                  <div style={{ marginBottom: "1rem" }}>
+                    <h4 style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--color-text-muted)", margin: "0 0 0.4rem" }}>Meses faltantes (retro)</h4>
+                    {missingMonths.map((mm) => {
+                      const key = `${mm.year}-${mm.month}`;
+                      return (
+                        <label key={key} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.45rem 0.6rem", borderRadius: 8, border: anticiparSel.has(key) ? "1px solid var(--color-primary)" : "1px solid var(--color-border)", marginBottom: 6, cursor: "pointer", background: anticiparSel.has(key) ? "rgba(var(--color-primary-rgb),0.06)" : "transparent" }}>
+                          <input type="checkbox" checked={anticiparSel.has(key)} onChange={() => toggleAnticipar(key)} />
+                          <span style={{ fontWeight: 600, fontSize: "0.88rem" }}>{mm.label}</span>
+                          <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "var(--color-text-muted)" }}>faltante</span>
+                        </label>
+                      );
                     })}
-                  </select>
+                  </div>
+                )}
+
+                <div style={{ marginBottom: "1rem" }}>
+                  <h4 style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--color-text-muted)", margin: "0 0 0.4rem" }}>Próximos 3 meses</h4>
+                  {(previews?.next ?? nextMonths.map((n) => ({ ...n, ingresos: 0, gastos: 0, fijos: 0, vigentes: 0, source: null }))).map((n) => {
+                    const key = `${n.year}-${n.month}`;
+                    const exists = (n as { exists: boolean }).exists;
+                    return (
+                      <label key={key} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.45rem 0.6rem", borderRadius: 8, border: anticiparSel.has(key) ? "1px solid var(--color-primary)" : "1px solid var(--color-border)", marginBottom: 6, cursor: exists ? "not-allowed" : "pointer", opacity: exists ? 0.6 : 1, background: anticiparSel.has(key) ? "rgba(var(--color-primary-rgb),0.06)" : "transparent" }}>
+                        <input type="checkbox" checked={anticiparSel.has(key)} disabled={!!exists} onChange={() => toggleAnticipar(key)} />
+                        <span style={{ fontWeight: 600, fontSize: "0.88rem" }}>{n.label}</span>
+                        {exists ? <span style={{ fontSize: "0.7rem", color: "#22c55e", fontWeight: 600 }}>ya existe</span>
+                          : <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "var(--color-text-muted)" }}>{n.ingresos} ing · {n.gastos} gas ({n.fijos} fijos + {n.vigentes} vig){(n as { source: string | null }).source ? ` ← ${(n as { source: string | null }).source}` : ""}</span>}
+                      </label>
+                    );
+                  })}
                 </div>
-              </div>
-              <p className="db-modal-preview">
-                Se creará: <strong>{MESES[nuevoMes - 1]} {nuevoAnio}</strong>
-              </p>
-              <div className="db-modal-actions">
-                <button
-                  type="button"
-                  className="db-modal-cancel"
-                  onClick={() => setShowCreateModal(false)}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="db-modal-submit"
-                  disabled={creando}
-                >
-                  {creando ? "Creando..." : "Crear mes"}
-                </button>
-              </div>
-            </form>
+
+                {anticiparSel.size > 0 && (
+                  <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginBottom: "1rem" }}>
+                    <button className="db-modal-cancel" type="button" onClick={() => setAnticiparSel(new Set())}>Limpiar</button>
+                    <button className="db-modal-submit" type="button" disabled={creando} onClick={handleAnticiparBulk}>
+                      {creando ? "Creando..." : `Crear seleccionados (${anticiparSel.size})`}
+                    </button>
+                  </div>
+                )}
+
+                <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "1rem", marginTop: "0.5rem" }}>
+                  <h4 style={{ fontSize: "0.8rem", fontWeight: 600, margin: "0 0 0.6rem" }}>O crear mes manual</h4>
+                  <form onSubmit={handleCrearMes}>
+                    <div className="db-modal-row">
+                      <div className="db-modal-field">
+                        <label htmlFor="db-mes">Mes</label>
+                        <select id="db-mes" className="db-select" value={nuevoMes} onChange={(e) => setNuevoMes(Number(e.target.value))}>
+                          {MESES.map((nombre, i) => (
+                            <option key={i + 1} value={i + 1}>{nombre}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="db-modal-field">
+                        <label htmlFor="db-anio">Año</label>
+                        <select id="db-anio" className="db-select" value={nuevoAnio} onChange={(e) => setNuevoAnio(Number(e.target.value))}>
+                          {Array.from({ length: 10 }, (_, i) => {
+                            const anio = new Date().getFullYear() - 5 + i;
+                            return <option key={anio} value={anio}>{anio}</option>;
+                          })}
+                        </select>
+                      </div>
+                    </div>
+                    <p className="db-modal-preview">
+                      Se creará: <strong>{MESES[nuevoMes - 1]} {nuevoAnio}</strong> (ingresos + gastos vigentes copiados)
+                    </p>
+                    <div className="db-modal-actions">
+                      <button type="button" className="db-modal-cancel" onClick={() => setShowCreateModal(false)}>Cancelar</button>
+                      <button type="submit" className="db-modal-submit" disabled={creando}>{creando ? "Creando..." : "Crear mes"}</button>
+                    </div>
+                  </form>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
