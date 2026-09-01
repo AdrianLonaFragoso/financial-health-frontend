@@ -97,7 +97,7 @@ export default function GlobalMonthSelector() {
         disabled={!selectedMonthData}
         title={selectedMonthData ? `Exportar ${selectedMonthData.label} como gastos-${selectedMonthData.label.toLowerCase().replace(/\s+/g,'-')}.md` : "Selecciona un mes"}
       >
-        <FaFileAlt /> Exportar .md
+        <FaFileAlt /> Exportar balance MD
       </button>
       <div className="global-month-anticipate">
         <button
